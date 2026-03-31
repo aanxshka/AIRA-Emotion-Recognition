@@ -176,7 +176,7 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-    /* ── RESET — grey background everywhere ── */
+    /* ── RESET — white background everywhere ── */
     html, body, .stApp,
     [data-testid="stAppViewContainer"],
     [data-testid="stMainBlockContainer"],
@@ -184,10 +184,10 @@ st.markdown("""
     [data-testid="stToolbar"],
     [data-testid="stBottom"],
     .block-container, .main, .main > div {
-        background-color: #F0F2F5 !important;
+        background-color: #FFFFFF !important;
         font-family: 'DM Sans', sans-serif !important;
     }
-    .stApp > header { background-color: #F0F2F5 !important; border-bottom: none !important; }
+    .stApp > header { background-color: #FFFFFF !important; border-bottom: none !important; }
     .block-container { padding-top: 4rem; padding-bottom: 2rem; }
 
     /* ── SIDEBAR — white ── */

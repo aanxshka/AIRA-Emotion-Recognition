@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Streamlit
+.streamlit/
+*.streamlit.app/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data
+confidence_log.csv
+event_log.csv
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (runtime)
+settings.json
+config.toml

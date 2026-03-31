@@ -5,6 +5,12 @@ import numpy as np
 import os
 import json
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+import seaborn as sns
+from model_performance import (
+    generate_confusion_matrix, accuracy_from_matrix, f1_from_matrix,
+    generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS
+)
 
 st.set_page_config(
     page_title="AIRA Emotion Detection Dashboard",
@@ -262,11 +268,17 @@ if 'demo_frame' not in st.session_state:
     st.session_state.demo_frame = 0
 if 'demo_complete' not in st.session_state:
     st.session_state.demo_complete = False
+if 'conf_matrix' not in st.session_state:
+    st.session_state.conf_matrix = generate_confusion_matrix()
+if 'cpu_history' not in st.session_state:
+    st.session_state.cpu_history = generate_cpu_history()
+if 'latency' not in st.session_state:
+    st.session_state.latency = generate_latency()
 
 # ── NAVIGATION ────────────────────────────────────────────────────────────────
 page = st.sidebar.radio(
     "Navigation",
-    ["📊 Live Dashboard", "📋 Event Timeline", "⚙️ Settings"],
+    ["📊 Live Dashboard", "📋 Event Timeline", "🧠 Model Performance", "⚙️ Settings"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown(
@@ -693,7 +705,147 @@ elif page == "📋 Event Timeline":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 3 — SETTINGS
+# PAGE 3 — MODEL PERFORMANCE
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "🧠 Model Performance":
+    st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
+
+    # Header + Refresh button
+    header_col, btn_col = st.columns([8, 1])
+    with header_col:
+        st.markdown(
+            '<div style="margin-bottom:24px;">' +
+            '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">AIRA · ML Analytics</div>' +
+            '<div style="font-size:22px;font-weight:700;color:#18181B;">Model Performance</div>' +
+            '</div>',
+            unsafe_allow_html=True
+        )
+    with btn_col:
+        if st.button("🔄 Refresh", use_container_width=True):
+            st.session_state.conf_matrix = generate_confusion_matrix()
+            st.session_state.latency = generate_latency()
+            cpu_last = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
+            new_cpu = cpu_last + np.random.uniform(-6, 6)
+            st.session_state.cpu_history = st.session_state.cpu_history + [max(5, min(90, round(new_cpu, 1)))]
+            st.rerun()
+
+    # Metrics from session state
+    mat = st.session_state.conf_matrix
+    acc = accuracy_from_matrix(mat) * 100
+    f1 = f1_from_matrix(mat) * 100
+    lat = st.session_state.latency
+    cpu = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
+    cpu_h = st.session_state.cpu_history
+
+    # Metric tiles
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">Accuracy</div>'
+            f'<div style="font-size:24px;font-weight:700;color:#2563EB;">{acc:.1f}%</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with m2:
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">F1 Score</div>'
+            f'<div style="font-size:24px;font-weight:700;color:#059669;">{f1:.1f}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with m3:
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">Latency</div>'
+            f'<div style="font-size:24px;font-weight:700;color:#F59E0B;">{lat}ms</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    with m4:
+        cpu_color = '#DC2626' if cpu > 80 else '#F59E0B' if cpu > 60 else '#059669'
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">CPU Usage</div>'
+            f'<div style="font-size:24px;font-weight:700;color:{cpu_color};">{cpu:.1f}%</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown('<div style="margin:28px 0;"></div>', unsafe_allow_html=True)
+
+    # Confusion Matrix
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.heatmap(mat, annot=True, fmt='d', cmap='Blues', xticklabels=EMOTIONS, yticklabels=EMOTIONS, ax=ax, cbar_kws={'label': 'Count'})
+    ax.set_xlabel('Predicted Label', fontsize=12, fontweight='bold')
+    ax.set_ylabel('True Label', fontsize=12, fontweight='bold')
+    ax.set_title('Confusion Matrix - Emotion Classification', fontsize=14, fontweight='bold', pad=20)
+    plt.tight_layout()
+    cm_b64 = fig_to_b64(fig)
+
+    st.markdown(
+        f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+        f'<img src="data:image/png;base64,{cm_b64}" style="width:100%;height:auto;">'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown('<div style="margin:20px 0;"></div>', unsafe_allow_html=True)
+
+    # CPU History Chart
+    fig, ax = plt.subplots(figsize=(10, 3))
+    ax.plot(cpu_h, linewidth=2, color='#2563EB', alpha=0.8)
+    ax.axhline(y=60, color='#F59E0B', linestyle='--', linewidth=1, alpha=0.5, label='Warning (60%)')
+    ax.axhline(y=80, color='#DC2626', linestyle='--', linewidth=1, alpha=0.5, label='Critical (80%)')
+    ax.fill_between(range(len(cpu_h)), 0, cpu_h, alpha=0.1, color='#2563EB')
+    ax.set_ylim([0, 100])
+    ax.set_xlabel('Time (seconds)', fontsize=10)
+    ax.set_ylabel('CPU Usage (%)', fontsize=10)
+    ax.set_title('CPU Usage - Last 60 Seconds', fontsize=12, fontweight='bold')
+    ax.legend(loc='upper right', fontsize=9)
+    ax.grid(True, alpha=0.2)
+    plt.tight_layout()
+    cpu_b64 = fig_to_b64(fig)
+
+    # Latency scatter
+    import random
+    np.random.seed(42)
+    latency_samples = [st.session_state.latency + np.random.normal(0, 5) for _ in range(30)]
+    latency_samples = [max(25, min(95, l)) for l in latency_samples]
+    
+    fig, ax = plt.subplots(figsize=(10, 3))
+    colors = ['#EF4444' if x > 80 else '#FBBF24' if x > 60 else '#34D399' for x in latency_samples]
+    ax.scatter(range(len(latency_samples)), latency_samples, c=colors, alpha=0.6, s=30)
+    ax.axhline(y=60, color='#F59E0B', linestyle='--', linewidth=1, alpha=0.5)
+    ax.axhline(y=80, color='#DC2626', linestyle='--', linewidth=1, alpha=0.5)
+    ax.set_ylim([20, 100])
+    ax.set_xlabel('Sample #', fontsize=10)
+    ax.set_ylabel('Latency (ms)', fontsize=10)
+    ax.set_title('Inference Latency - Last 30 Samples', fontsize=12, fontweight='bold')
+    ax.grid(True, alpha=0.2)
+    plt.tight_layout()
+    lat_b64 = fig_to_b64(fig)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<img src="data:image/png;base64,{cpu_b64}" style="width:100%;height:auto;">'
+            '</div>',
+            unsafe_allow_html=True
+        )
+    with c2:
+        st.markdown(
+            f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
+            f'<img src="data:image/png;base64,{lat_b64}" style="width:100%;height:auto;">'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 4 — SETTINGS
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "⚙️ Settings":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)

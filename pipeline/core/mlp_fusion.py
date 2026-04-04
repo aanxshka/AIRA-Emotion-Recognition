@@ -152,15 +152,24 @@ class MLPFusion:
         modalities = 'both' if (has_face and has_audio) else (
             'face_only' if has_face else 'audio_only')
 
-        input_vec = self._build_input(face_result, audio_result)
-
-        if self.loaded:
+        # Only use MLP when BOTH modalities have real data.
+        # MLP was trained on real face+audio pairs; feeding it uniform 1/7
+        # for a missing modality produces unreliable outputs (e.g., Fear on
+        # a neutral face with no audio). For single-modality, use aligned
+        # probabilities directly.
+        if has_face and has_audio and self.loaded:
+            input_vec = self._build_input(face_result, audio_result)
             with torch.no_grad():
                 logits = self.model(torch.tensor(input_vec).unsqueeze(0))
                 probs = torch.softmax(logits, dim=1).numpy()[0]
+        elif has_face:
+            probs_dict = align_face_probs(face_result['emotion_probs'])
+            probs = np.array([probs_dict.get(em, 0.0) for em in SHARED_EMOTIONS])
+        elif has_audio:
+            probs_dict = align_audio_probs(audio_result['emotion_probs'])
+            probs = np.array([probs_dict.get(em, 0.0) for em in SHARED_EMOTIONS])
         else:
-            # Fallback: simple average if model not loaded
-            probs = input_vec[:7] * 0.5 + input_vec[7:] * 0.5
+            probs = np.ones(7) / 7
 
         top_idx = int(np.argmax(probs))
         emotion = SHARED_EMOTIONS[top_idx]

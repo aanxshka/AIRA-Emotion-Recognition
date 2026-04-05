@@ -1,0 +1,15 @@
+ground_truth,face_pred,audio_pred,v3_pred,mlp_pred
+Sad,Neutral,Happy,Happy,Sad
+Fear,Sad,Sad,Sad,Sad
+Happy,Happy,Happy,Happy,Happy
+Sad,Neutral,Sad,Sad,Sad
+Neutral,Neutral,Neutral,Neutral,Neutral
+Happy,Happy,Sad,Happy,Happy
+Angry,Angry,Angry,Angry,Angry
+Sad,Sad,Neutral,Sad,Neutral
+Fear,Neutral,Sad,Sad,Sad
+Neutral,Neutral,Neutral,Neutral,Neutral
+Sad,Neutral,Sad,Sad,Sad
+Neutral,Happy,Neutral,Happy,Neutral
+Neutral,Neutral,Neutral,Neutral,Neutral
+Happy,Happy,Happy,Happy,Happy

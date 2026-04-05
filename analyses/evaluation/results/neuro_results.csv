@@ -1,0 +1,9 @@
+ground_truth,face_pred,audio_pred,v3_pred,mlp_pred
+Happy,Sad,Neutral,Sad,Neutral
+Happy,Happy,Happy,Happy,Happy
+Neutral,Angry,Happy,Happy,Sad
+Happy,Angry,Happy,Happy,Happy
+Neutral,Neutral,Neutral,Neutral,Neutral
+Surprise,Happy,Neutral,Happy,Neutral
+Happy,Fear,Happy,Happy,Sad
+Sad,Neutral,Neutral,Neutral,Neutral

@@ -121,7 +121,7 @@ def print_split_stats(train_clips: List[Dict], test_clips: List[Dict]):
 
 if __name__ == "__main__":
     import sys
-    video_dir = sys.argv[1] if len(sys.argv) > 1 else "data/ravdess"
+    video_dir = sys.argv[1] if len(sys.argv) > 1 else "data/ravdess"  # Replace with path to RAVDESS videos
     if not os.path.exists(video_dir):
         print(f"Directory not found: {video_dir}")
         print("Download RAVDESS dataset first.")

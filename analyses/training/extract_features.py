@@ -38,9 +38,9 @@ from data_split import split_dataset, RAVDESS_EMOTIONS, print_split_stats
 # Configuration
 # ============================================================================
 
-RAVDESS_DIR = "data/ravdess"
-ELDERLY_DIR = "/Users/Anders_1/Downloads/seedance_video_test"
-OUTPUT_DIR = "data"
+RAVDESS_DIR = "data/ravdess"  # Replace with path to your RAVDESS video directory
+ELDERLY_DIR = "/Users/Anders_1/Downloads/seedance_video_test"  # Replace with path to elderly test clips
+OUTPUT_DIR = "data"  # Replace with desired output directory for .npz files
 SAMPLE_RATE = 16000
 NUM_FACE_FRAMES = 5
 

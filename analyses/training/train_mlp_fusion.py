@@ -30,8 +30,8 @@ from core.fusion import SHARED_EMOTIONS
 # Configuration
 # ============================================================================
 
-TRAIN_FEATURES = "data/ravdess_train_features.npz"
-MODEL_OUTPUT = "models/mlp_fusion.pt"
+TRAIN_FEATURES = "data/ravdess_train_features.npz"  # Replace with path to cached train features
+MODEL_OUTPUT = "models/mlp_fusion.pt"  # Replace with desired output path for trained model
 NUM_FOLDS = 5
 EPOCHS = 100
 PATIENCE = 10

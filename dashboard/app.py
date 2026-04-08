@@ -73,7 +73,7 @@ def load_log():
         return pd.read_csv(LOG_PATH, parse_dates=['timestamp'])
     return pd.DataFrame(columns=[
         'timestamp','primary_emotion','confidence',
-        'happy','sad','fear','angry','disgust','neutral',
+        'happy','sad','fear','angry','disgust','neutral','surprise',
         'video_quality','audio_quality','confidence_band'
     ])
 
@@ -100,6 +100,7 @@ def append_to_log(df_new):
             'angry':           float(row['angry_score']),
             'disgust':         float(row['disgust_score']),
             'neutral':         float(row['neutral_score']),
+            'surprise':        float(row.get('surprise_score', 0)),
             'video_quality':   float(row['video_signal_quality']),
             'audio_quality':   float(row['audio_signal_quality']),
             'confidence_band': band(conf),
@@ -379,14 +380,15 @@ if page == "📊 Live Dashboard":
         # Use the normalised emotion score as confidence so left and right panels always match
         emotion_col_map = {
             'Happy': 'happy_score', 'Sad': 'sad_score', 'Fear': 'fear_score',
-            'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score'
+            'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score',
+            'Surprise': 'surprise_score'
         }
         confidence = float(latest[emotion_col_map.get(emotion, 'confidence')])
         v_active   = latest['video_feed_active']
         a_active   = latest['audio_feed_active']
 
-        emotions       = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score']
-        emotion_labels = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
+        emotions       = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score','surprise_score']
+        emotion_labels = ['Happy','Sad','Fear','Angry','Disgust','Neutral','Surprise']
         emotion_values = [float(latest[e]) for e in emotions]
 
         vq = float(latest['video_signal_quality'])
@@ -686,8 +688,8 @@ elif page == "📋 Event Timeline":
                         '</div>'
                     ), unsafe_allow_html=True)
                 with d2:
-                    el = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
-                    ev_vals = [ev['happy'],ev['sad'],ev['fear'],ev['angry'],ev['disgust'],ev['neutral']]
+                    el = ['Happy','Sad','Fear','Angry','Disgust','Neutral','Surprise']
+                    ev_vals = [ev['happy'],ev['sad'],ev['fear'],ev['angry'],ev['disgust'],ev['neutral'],ev.get('surprise',0)]
                     fig_ev = go.Figure(go.Bar(
                         x=el, y=ev_vals,
                         marker_color=['#111111' if e==ev['primary_emotion'] else '#E5E7EB' for e in el],

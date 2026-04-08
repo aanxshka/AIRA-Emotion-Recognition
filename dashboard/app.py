@@ -600,7 +600,13 @@ elif page == "📋 Event Timeline":
         st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:20px;">', unsafe_allow_html=True)
         filter_col1, filter_col2, filter_col3 = st.columns([2,2,1])
         with filter_col1:
-            conf_filter = st.selectbox("Confidence", ["All","High (> 60%)","Medium (40–60%)","Low (< 40%)"])
+            conf_options = [
+                "All",
+                f"High (≥ {CONF_AMBER}%)",
+                f"Medium ({CONF_RED}–{CONF_AMBER}%)",
+                f"Low (< {CONF_RED}%)",
+            ]
+            conf_filter = st.selectbox("Confidence", conf_options)
         with filter_col2:
             all_emotions   = ["All"] + sorted(log_df['primary_emotion'].unique().tolist())
             emotion_filter = st.selectbox("Emotion", all_emotions)
@@ -614,9 +620,9 @@ elif page == "📋 Event Timeline":
         st.markdown('</div>', unsafe_allow_html=True)
 
         filtered = log_df.copy()
-        if conf_filter == "High (> 60%)":      filtered = filtered[filtered['confidence_band']=='high']
-        elif conf_filter == "Medium (40–60%)": filtered = filtered[filtered['confidence_band']=='medium']
-        elif conf_filter == "Low (< 40%)":     filtered = filtered[filtered['confidence_band']=='low']
+        if conf_filter == conf_options[1]:   filtered = filtered[filtered['confidence_band']=='high']
+        elif conf_filter == conf_options[2]: filtered = filtered[filtered['confidence_band']=='medium']
+        elif conf_filter == conf_options[3]: filtered = filtered[filtered['confidence_band']=='low']
         if emotion_filter != "All":            filtered = filtered[filtered['primary_emotion']==emotion_filter]
 
         total  = len(filtered)

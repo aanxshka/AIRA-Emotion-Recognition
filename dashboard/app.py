@@ -68,9 +68,19 @@ DEMO_FRAMES       = load_demo_frames()
 TOTAL_DEMO_FRAMES = len(DEMO_FRAMES)
 
 # ── LOG HELPERS ───────────────────────────────────────────────────────────────
+def band(c):
+    """Classify confidence into high/medium/low using current threshold settings."""
+    if c < CONF_RED:   return "low"
+    if c < CONF_AMBER: return "medium"
+    return "high"
+
 def load_log():
     if os.path.exists(LOG_PATH):
-        return pd.read_csv(LOG_PATH, parse_dates=['timestamp'])
+        df = pd.read_csv(LOG_PATH, parse_dates=['timestamp'])
+        # Compute confidence_band dynamically using current thresholds
+        if 'confidence' in df.columns:
+            df['confidence_band'] = df['confidence'].apply(band)
+        return df
     return pd.DataFrame(columns=[
         'timestamp','primary_emotion','confidence',
         'happy','sad','fear','angry','disgust','neutral','surprise',
@@ -80,20 +90,15 @@ def load_log():
 def append_to_log(df_new):
     os.makedirs("data", exist_ok=True)
     existing = load_log()
-    def band(c):
-        if c < CONF_RED:   return "low"
-        if c < CONF_AMBER: return "medium"
-        return "high"
     rows = []
     for _, row in df_new.iloc[::LOG_FREQUENCY].iterrows():
         ts = str(row['timestamp'])
         if not existing.empty and ts in existing['timestamp'].astype(str).values:
             continue
-        conf = float(row['confidence'])
         rows.append({
             'timestamp':       row['timestamp'],
             'primary_emotion': row['primary_emotion'],
-            'confidence':      conf,
+            'confidence':      float(row['confidence']),
             'happy':           float(row['happy_score']),
             'sad':             float(row['sad_score']),
             'fear':            float(row['fear_score']),
@@ -103,10 +108,12 @@ def append_to_log(df_new):
             'surprise':        float(row.get('surprise_score', 0)),
             'video_quality':   float(row['video_signal_quality']),
             'audio_quality':   float(row['audio_signal_quality']),
-            'confidence_band': band(conf),
         })
     if rows:
         out = pd.concat([existing, pd.DataFrame(rows)], ignore_index=True)
+        # Drop confidence_band column if present (legacy) — it's computed at read time
+        if 'confidence_band' in out.columns:
+            out = out.drop(columns=['confidence_band'])
         out.to_csv(LOG_PATH, index=False)
 
 # ── DEMO DATA BUILDER ─────────────────────────────────────────────────────────

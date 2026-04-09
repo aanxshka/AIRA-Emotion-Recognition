@@ -448,13 +448,11 @@ if page == "📊 Live Dashboard":
             if latest is None:
                 st.warning("No live data found. Start the pipeline first.")
                 return
-            if is_stale:
-                st.info("📡 Feed Offline — pipeline has stopped sending data.")
-                return
-            # Log every Nth refresh
-            st.session_state._log_counter += 1
-            if st.session_state._log_counter % LOG_FREQUENCY == 0:
-                append_to_log_live(latest)
+            # Don't return on stale — show last known state, just skip logging
+            if not is_stale:
+                st.session_state._log_counter += 1
+                if st.session_state._log_counter % LOG_FREQUENCY == 0:
+                    append_to_log_live(latest)
             df = None  # No history DataFrame in live mode
         else:
             # Demo mode: existing sequential playback
@@ -463,9 +461,11 @@ if page == "📊 Live Dashboard":
             except Exception as e:
                 st.error(f"Could not load data: {e}")
                 return
-            if st.session_state.live_mode:
+            # Only log demo data when in demo mode AND playing
+            if st.session_state.live_mode and not is_live_source:
                 append_to_log(df.iloc[[-1]])
             latest = df.iloc[-1]
+            is_stale = False
 
         emotion    = latest['primary_emotion']
         emotion_col_map = {
@@ -548,13 +548,17 @@ if page == "📊 Live Dashboard":
                     unsafe_allow_html=True
                 )
 
-        badge = (
-            '<span style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">● LIVE</span>'
-            if live else
-            '<span style="background:#F4F4F5;color:#6B7280;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">⏸ PAUSED</span>'
-        )
+        if is_live_source and is_stale:
+            badge = '<span style="background:#FEF3C7;color:#D97706;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">⏸ Feed Offline</span>'
+            ts_display = pd.to_datetime(latest['timestamp']).strftime('%H:%M:%S')
+        elif live or is_live_source:
+            badge = '<span style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">● LIVE</span>'
+            ts_display = datetime.now().strftime('%H:%M:%S')
+        else:
+            badge = '<span style="background:#F4F4F5;color:#6B7280;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">⏸ PAUSED</span>'
+            ts_display = datetime.now().strftime('%H:%M:%S')
         st.markdown(
-            f'<div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;">Last updated: {datetime.now().strftime("%H:%M:%S")}{badge}</div>',
+            f'<div style="font-size:12px;color:#9CA3AF;margin-bottom:20px;">Last updated: {ts_display}{badge}</div>',
             unsafe_allow_html=True
         )
 

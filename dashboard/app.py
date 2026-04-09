@@ -385,17 +385,17 @@ if page == "📊 Dashboard":
 
     with header_col:
         st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;padding-top:4px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;padding-top:12px;">' +
             '<span style="font-size:28px;line-height:1;">🤖</span>' +
             '<div>' +
-            '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;">AIRA · Emotion Detection</div>' +
+            '<div style="font-size:11px;font-weight:600;color:#6B7280;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;">AIRA · Emotion Detection</div>' +
             '<div style="font-size:22px;font-weight:700;color:#18181B;line-height:1.1;">Developer Dashboard</div>' +
             '</div></div>',
             unsafe_allow_html=True
         )
 
     with source_col:
-        st.markdown('<div style="padding-top:22px;">', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:16px;">', unsafe_allow_html=True)
         current_idx = 1 if st.session_state.data_source == 'live' else 0
         source = st.radio("source", ["Demo", "Live"], index=current_idx,
                           horizontal=True, label_visibility="collapsed")
@@ -410,7 +410,7 @@ if page == "📊 Dashboard":
         st.markdown('</div>', unsafe_allow_html=True)
 
     with controls_col:
-        st.markdown('<div style="padding-top:6px;">', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
         if st.session_state.data_source == 'live':
             st.markdown(
                 '<div style="padding-top:10px;font-size:12px;color:#6B7280;">'

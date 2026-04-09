@@ -257,6 +257,18 @@ st.markdown("""
         border-right: 1px solid #E4E4E7 !important;
     }
     .stRadio label { font-size: 13px !important; color: #374151 !important; }
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    [data-testid="stSidebar"] [role="radiogroup"] label p,
+    [data-testid="stSidebar"] [role="radiogroup"] label span {
+        color: #111111 !important;
+        font-weight: 500 !important;
+        font-size: 15px !important;
+        line-height: 1.2 !important;
+    }
     [data-testid="stSidebar"] hr { border-color: #E4E4E7 !important; }
     [data-testid="stSidebarCollapseButton"],
     [data-testid="collapsedControl"],
@@ -297,6 +309,16 @@ st.markdown("""
     [data-testid="stSelectbox"] label { font-size: 13px !important; font-weight: 600 !important; color: #374151 !important; }
     [data-baseweb="select"] > div { border-color: #E4E4E7 !important; border-radius: 8px !important; }
 
+    /* Radio button text in main content area */
+    .stMainBlockContainer .stRadio label p,
+    .stMainBlockContainer .stRadio label span,
+    .stMainBlockContainer [role="radiogroup"] label p,
+    .stMainBlockContainer [role="radiogroup"] label span {
+        color: #111111 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+    }
+
     .diagnostics-chart-wrapper {
         background-color: #FFFFFF;
         border-radius: 0 0 12px 12px;
@@ -334,7 +356,7 @@ if 'latency' not in st.session_state:
 
 page = st.sidebar.radio(
     "Navigation",
-    ["📊 Live Dashboard", "📋 Event Timeline", "🧠 Model Performance", "⚙️ Settings"],
+    ["📊 Dashboard", "📋 Timeline", "🧠 Performance", "⚙️ Settings"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown(
@@ -357,38 +379,38 @@ st.sidebar.markdown(
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — LIVE DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "📊 Live Dashboard":
+if page == "📊 Dashboard":
 
     header_col, source_col, controls_col = st.columns([3, 1.5, 3.5])
 
     with header_col:
         st.markdown(
-            '<div style="display:flex;align-items:center;gap:12px;padding-top:4px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;padding-top:12px;">' +
             '<span style="font-size:28px;line-height:1;">🤖</span>' +
             '<div>' +
-            '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;">AIRA · Emotion Detection</div>' +
+            '<div style="font-size:11px;font-weight:600;color:#6B7280;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;">AIRA · Emotion Detection</div>' +
             '<div style="font-size:22px;font-weight:700;color:#18181B;line-height:1.1;">Developer Dashboard</div>' +
             '</div></div>',
             unsafe_allow_html=True
         )
 
     with source_col:
-        st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:16px;">', unsafe_allow_html=True)
         current_idx = 1 if st.session_state.data_source == 'live' else 0
-        source = st.radio("Data Source", ["Demo", "Live"], index=current_idx,
+        source = st.radio("source", ["Demo", "Live"], index=current_idx,
                           horizontal=True, label_visibility="collapsed")
         new_source = source.lower()
         if new_source != st.session_state.data_source:
             st.session_state.data_source = new_source
             if new_source == 'live':
-                st.session_state.live_mode = True   # Auto-start refresh for live
+                st.session_state.live_mode = True
             else:
-                st.session_state.live_mode = False  # Pause demo on switch back
+                st.session_state.live_mode = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     with controls_col:
-        st.markdown('<div style="padding-top:6px;">', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
         if st.session_state.data_source == 'live':
             st.markdown(
                 '<div style="padding-top:10px;font-size:12px;color:#6B7280;">'
@@ -691,7 +713,7 @@ if page == "📊 Live Dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — EVENT TIMELINE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📋 Event Timeline":
+elif page == "📋 Timeline":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
     st.markdown(
@@ -901,7 +923,7 @@ elif page == "📋 Event Timeline":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — MODEL PERFORMANCE  (rebuilt to match dashboard.py)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧠 Model Performance":
+elif page == "🧠 Performance":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
     # Header + approach selector

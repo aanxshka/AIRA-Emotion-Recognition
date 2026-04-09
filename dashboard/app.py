@@ -309,6 +309,16 @@ st.markdown("""
     [data-testid="stSelectbox"] label { font-size: 13px !important; font-weight: 600 !important; color: #374151 !important; }
     [data-baseweb="select"] > div { border-color: #E4E4E7 !important; border-radius: 8px !important; }
 
+    /* Radio button text in main content area */
+    .stMainBlockContainer .stRadio label p,
+    .stMainBlockContainer .stRadio label span,
+    .stMainBlockContainer [role="radiogroup"] label p,
+    .stMainBlockContainer [role="radiogroup"] label span {
+        color: #111111 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+    }
+
     .diagnostics-chart-wrapper {
         background-color: #FFFFFF;
         border-radius: 0 0 12px 12px;
@@ -385,17 +395,17 @@ if page == "📊 Dashboard":
         )
 
     with source_col:
-        st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
+        st.markdown('<div style="padding-top:22px;">', unsafe_allow_html=True)
         current_idx = 1 if st.session_state.data_source == 'live' else 0
-        source = st.radio("Data Source", ["Demo", "Live"], index=current_idx,
+        source = st.radio("source", ["Demo", "Live"], index=current_idx,
                           horizontal=True, label_visibility="collapsed")
         new_source = source.lower()
         if new_source != st.session_state.data_source:
             st.session_state.data_source = new_source
             if new_source == 'live':
-                st.session_state.live_mode = True   # Auto-start refresh for live
+                st.session_state.live_mode = True
             else:
-                st.session_state.live_mode = False  # Pause demo on switch back
+                st.session_state.live_mode = False
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 

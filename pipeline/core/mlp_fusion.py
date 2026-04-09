@@ -174,6 +174,7 @@ class MLPFusion:
         top_idx = int(np.argmax(probs))
         emotion = SHARED_EMOTIONS[top_idx]
         confidence = float(probs[top_idx])
+        probs_dict = {em: float(probs[i]) for i, em in enumerate(SHARED_EMOTIONS)}
 
         va = EMOTION_VA_LOOKUP.get(emotion, (0, 0))
         quadrant = va_to_quadrant(va[0], va[1])
@@ -198,4 +199,5 @@ class MLPFusion:
             face_weight=0.5,   # MLP learns weights internally — 0.5 is nominal
             audio_weight=0.5,
             modalities_present=modalities,
+            fused_probs=probs_dict,
         )

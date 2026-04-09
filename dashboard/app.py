@@ -315,8 +315,8 @@ if 'live_mode' not in st.session_state:
     st.session_state.live_mode = False
 if 'data_source' not in st.session_state:
     st.session_state.data_source = 'demo'
-if '_log_counter' not in st.session_state:
-    st.session_state._log_counter = 0
+if '_last_log_time' not in st.session_state:
+    st.session_state._last_log_time = datetime.min
 if 'session_start' not in st.session_state:
     st.session_state.session_start = datetime.now()
 if 'demo_frame' not in st.session_state:
@@ -381,7 +381,9 @@ if page == "📊 Live Dashboard":
         if new_source != st.session_state.data_source:
             st.session_state.data_source = new_source
             if new_source == 'live':
-                st.session_state.live_mode = True  # Auto-start refresh for live
+                st.session_state.live_mode = True   # Auto-start refresh for live
+            else:
+                st.session_state.live_mode = False  # Pause demo on switch back
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -458,9 +460,11 @@ if page == "📊 Live Dashboard":
                 return
             # Don't return on stale — show last known state, just skip logging
             if not is_stale:
-                st.session_state._log_counter += 1
-                if st.session_state._log_counter % LOG_FREQUENCY == 0:
+                min_log_interval = REFRESH_INTERVAL * LOG_FREQUENCY
+                now = datetime.now()
+                if (now - st.session_state._last_log_time).total_seconds() >= min_log_interval:
                     append_to_log_live(latest)
+                    st.session_state._last_log_time = now
             df = None  # No history DataFrame in live mode
         else:
             # Demo mode: existing sequential playback

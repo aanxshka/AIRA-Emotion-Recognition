@@ -930,25 +930,9 @@ elif page == "🧠 Model Performance":
     mat   = st.session_state.conf_matrix
     acc   = accuracy_from_matrix(mat) * 100
     f1    = f1_from_matrix(mat) * 100
-    # Try reading real latency/CPU from live data, fall back to simulated
-    _live_metrics_loaded = False
-    if os.path.exists(LIVE_DATA_PATH):
-        try:
-            _live_df = pd.read_csv(LIVE_DATA_PATH)
-            if not _live_df.empty and 'cpu_usage' in _live_df.columns:
-                _latest = _live_df.iloc[-1]
-                lat = max(float(_latest.get('face_latency_ms', 0)),
-                          float(_latest.get('audio_latency_ms', 0)))
-                lat = round(lat, 0)
-                cpu = float(_latest.get('cpu_usage', 0))
-                cpu_h = list(_live_df['cpu_usage'].tail(60).values)
-                _live_metrics_loaded = True
-        except Exception:
-            pass
-    if not _live_metrics_loaded:
-        lat   = st.session_state.latency
-        cpu   = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
-        cpu_h = list(st.session_state.cpu_history)
+    lat   = st.session_state.latency
+    cpu   = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
+    cpu_h = list(st.session_state.cpu_history)
 
     lat_color = "#16a34a" if lat < 50 else "#d97706" if lat < 70 else "#dc2626"
     cpu_color = "#16a34a" if cpu < 60 else "#d97706" if cpu < 80 else "#dc2626"
@@ -1053,7 +1037,6 @@ elif page == "🧠 Model Performance":
         """, unsafe_allow_html=True)
 
     with col2:
-        # Metric cards
         st.markdown(f"""
         <div style="background:#ffffff;border-radius:18px;padding:28px 28px 24px 28px;
                     box-shadow:0 1px 8px rgba(0,0,0,0.08);border:1px solid #E4E4E7;">
@@ -1069,37 +1052,10 @@ elif page == "🧠 Model Performance":
               <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-top:5px;">Current Load</div>
             </div>
           </div>
+          <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px;">CPU Usage Over Time</div>
+          <img src="data:image/png;base64,{cpu_b64}" style="width:100%;border-radius:10px;display:block;" />
+        </div>
         """, unsafe_allow_html=True)
-
-        # CPU chart — interactive Plotly when live data, static matplotlib fallback
-        if _live_metrics_loaded:
-            fig_cpu = go.Figure()
-            _cpu_timestamps = pd.to_datetime(_live_df['timestamp'].tail(60)).values
-            fig_cpu.add_trace(go.Scatter(
-                x=_cpu_timestamps, y=cpu_h, mode='lines', name='CPU %',
-                line=dict(color='#2563EB', width=2),
-                fill='tozeroy', fillcolor='rgba(37,99,235,0.1)',
-            ))
-            fig_cpu.add_hline(y=60, line_dash="dash", line_color="#F59E0B", line_width=2,
-                              annotation_text="⚠ 60% warn", annotation_font_size=11, annotation_font_color="#D97706")
-            fig_cpu.add_hline(y=80, line_dash="dash", line_color="#EF4444", line_width=2,
-                              annotation_text="🔴 80% crit", annotation_font_size=11, annotation_font_color="#DC2626")
-            fig_cpu.update_layout(
-                title=dict(text="CPU Usage Over Time", font=dict(size=12, color='#9CA3AF')),
-                height=250, margin=dict(l=40, r=20, t=40, b=30),
-                yaxis=dict(range=[0, 105], gridcolor='#F3F4F6', tickfont=dict(color='#9CA3AF')),
-                xaxis=dict(gridcolor='#F3F4F6', tickfont=dict(color='#9CA3AF')),
-                plot_bgcolor='#FFFFFF', paper_bgcolor='#FFFFFF',
-                showlegend=False,
-            )
-            st.plotly_chart(fig_cpu, use_container_width=True)
-        else:
-            st.markdown(f"""
-              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px;">CPU Usage Over Time</div>
-              <img src="data:image/png;base64,{cpu_b64}" style="width:100%;border-radius:10px;display:block;" />
-            """, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

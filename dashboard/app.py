@@ -562,7 +562,7 @@ if page == "📊 Live Dashboard":
 
         if is_live_source and is_stale:
             badge = '<span style="background:#FEF3C7;color:#D97706;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">⏸ Feed Offline</span>'
-            ts_display = pd.to_datetime(latest['timestamp']).strftime('%H:%M:%S')
+            ts_display = pd.to_datetime(latest['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
         elif live or is_live_source:
             badge = '<span style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">● LIVE</span>'
             ts_display = datetime.now().strftime('%H:%M:%S')

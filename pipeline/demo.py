@@ -726,28 +726,9 @@ class DeepFaceAudioFusionApp:
         if fusion_result.modalities_present == 'none':
             return  # Nothing to log
 
-        # Reconstruct fused probability distribution consistent with fusion output.
-        # For MLP: re-run the aligned input through the same path the MLP uses.
-        # For V3: weighted average of aligned face + audio probs.
-        face_input = face_for_fusion if (face_for_fusion and not face_stale) else None
-        audio_input = audio_result if (audio_result and not audio_stale) else None
-
-        # Build aligned probs matching what fusion saw
-        if face_input and 'emotion_probs' in face_input:
-            face_aligned = align_face_probs(face_input['emotion_probs'])
-        else:
-            face_aligned = {em: 1.0 / 7 for em in SHARED_EMOTIONS}
-
-        if audio_input and 'emotion_probs' in audio_input:
-            audio_aligned = align_audio_probs(audio_input['emotion_probs'])
-        else:
-            audio_aligned = {em: 1.0 / 7 for em in SHARED_EMOTIONS}
-
-        # Weighted average (approximation of what both V3 and MLP see)
-        fw, aw = fusion_result.face_weight, fusion_result.audio_weight
-        fused_probs = {}
-        for em in SHARED_EMOTIONS:
-            fused_probs[em] = fw * face_aligned.get(em, 0) + aw * audio_aligned.get(em, 0)
+        # Use the fusion layer's actual probability distribution.
+        # This ensures confidence (max prob) matches the emotion scores.
+        fused_probs = fusion_result.fused_probs or {em: 0.0 for em in SHARED_EMOTIONS}
 
         row = {
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],

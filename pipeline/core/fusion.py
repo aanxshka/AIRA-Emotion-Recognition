@@ -206,6 +206,7 @@ class FusionResult:
     face_weight: float
     audio_weight: float
     modalities_present: str # 'both', 'face_only', 'audio_only', 'none'
+    fused_probs: Optional[Dict[str, float]] = None  # Full 7-class distribution
 
 
 # ============================================================================
@@ -263,6 +264,7 @@ class ProbabilityFusion:
                 audio_emotion=None, audio_confidence=None,
                 fusion_version=1, face_weight=1.0, audio_weight=0.0,
                 modalities_present='face_only',
+                fused_probs=aligned,
             )
 
         # Audio only
@@ -279,6 +281,7 @@ class ProbabilityFusion:
                 audio_emotion=audio_result['top_emotion'], audio_confidence=audio_result['confidence'],
                 fusion_version=1, face_weight=0.0, audio_weight=1.0,
                 modalities_present='audio_only',
+                fused_probs=aligned,
             )
 
         # Both present: weighted fusion
@@ -310,4 +313,5 @@ class ProbabilityFusion:
             audio_emotion=audio_result['top_emotion'], audio_confidence=audio_conf,
             fusion_version=1, face_weight=fw, audio_weight=aw,
             modalities_present='both',
+            fused_probs=fused_probs,
         )

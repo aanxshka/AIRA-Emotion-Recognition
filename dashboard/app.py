@@ -22,9 +22,10 @@ st.set_page_config(
     layout="wide"
 )
 
-CONFIG_PATH = "data/settings.json"
-LOG_PATH    = "data/event_log.csv"
-DATA_PATH   = "data/emotion_data.csv"
+CONFIG_PATH    = "data/settings.json"
+LOG_PATH       = "data/event_log.csv"
+DATA_PATH      = "data/emotion_data.csv"
+LIVE_DATA_PATH = "data/emotion_live_data.csv"
 
 DEFAULT_CONFIG = {
     "refresh_interval": 5,
@@ -139,6 +140,68 @@ def get_demo_data():
         st.session_state.demo_frame = next_frame
     return df
 
+def get_live_data():
+    """Read latest row from emotion_live_data.csv for live pipeline mode.
+
+    Returns:
+        (latest_row, is_stale) — latest_row is a Series or None, is_stale is bool.
+    """
+    if not os.path.exists(LIVE_DATA_PATH):
+        return None, True
+
+    try:
+        df = pd.read_csv(LIVE_DATA_PATH)
+    except Exception:
+        return None, True
+
+    if df.empty:
+        return None, True
+
+    latest = df.iloc[-1]
+
+    # Staleness check: if last row is older than 2x refresh interval, pipeline stopped
+    try:
+        ts = pd.to_datetime(latest['timestamp'])
+        age_seconds = (datetime.now() - ts).total_seconds()
+        is_stale = age_seconds > (REFRESH_INTERVAL * 2)
+    except Exception:
+        is_stale = True
+
+    return latest, is_stale
+
+
+def append_to_log_live(row):
+    """Append a single live data row to the event log.
+
+    Args:
+        row: pandas Series from emotion_live_data.csv
+    """
+    os.makedirs("data", exist_ok=True)
+    existing = load_log()
+    ts = str(row['timestamp'])
+    if not existing.empty and ts in existing['timestamp'].astype(str).values:
+        return  # Skip duplicate
+
+    new_row = {
+        'timestamp':       row['timestamp'],
+        'primary_emotion': row['primary_emotion'],
+        'confidence':      float(row['confidence']),
+        'happy':           float(row['happy_score']),
+        'sad':             float(row['sad_score']),
+        'fear':            float(row['fear_score']),
+        'angry':           float(row['angry_score']),
+        'disgust':         float(row['disgust_score']),
+        'neutral':         float(row['neutral_score']),
+        'surprise':        float(row.get('surprise_score', 0)),
+        'video_quality':   float(row['video_signal_quality']),
+        'audio_quality':   float(row['audio_signal_quality']),
+    }
+    out = pd.concat([existing, pd.DataFrame([new_row])], ignore_index=True)
+    if 'confidence_band' in out.columns:
+        out = out.drop(columns=['confidence_band'])
+    out.to_csv(LOG_PATH, index=False)
+
+
 def conf_color(c):
     if c < CONF_RED:   return "#DC2626"
     if c < CONF_AMBER: return "#D97706"
@@ -250,6 +313,10 @@ st.markdown("""
 
 if 'live_mode' not in st.session_state:
     st.session_state.live_mode = False
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = 'demo'
+if '_log_counter' not in st.session_state:
+    st.session_state._log_counter = 0
 if 'session_start' not in st.session_state:
     st.session_state.session_start = datetime.now()
 if 'demo_frame' not in st.session_state:
@@ -292,7 +359,7 @@ st.sidebar.markdown(
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "📊 Live Dashboard":
 
-    header_col, controls_col = st.columns([4, 4])
+    header_col, source_col, controls_col = st.columns([3, 1.5, 3.5])
 
     with header_col:
         st.markdown(
@@ -304,6 +371,12 @@ if page == "📊 Live Dashboard":
             '</div></div>',
             unsafe_allow_html=True
         )
+
+    with source_col:
+        st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
+        source = st.radio("Data Source", ["Demo", "Live"], horizontal=True, label_visibility="collapsed")
+        st.session_state.data_source = source.lower()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with controls_col:
         st.markdown('<div style="padding-top:6px;">', unsafe_allow_html=True)
@@ -352,17 +425,33 @@ if page == "📊 Live Dashboard":
     @st.fragment(run_every=REFRESH_INTERVAL if st.session_state.live_mode else None)
     def render_dashboard():
         live = st.session_state.live_mode
+        is_live_source = st.session_state.data_source == 'live'
 
-        try:
-            df = get_demo_data()
-        except Exception as e:
-            st.error(f"Could not load data: {e}")
-            return
+        if is_live_source:
+            # Live mode: read latest row from pipeline CSV
+            latest, is_stale = get_live_data()
+            if latest is None:
+                st.warning("No live data found. Start the pipeline first.")
+                return
+            if is_stale:
+                st.info("📡 Feed Offline — pipeline has stopped sending data.")
+                return
+            # Log every Nth refresh
+            st.session_state._log_counter += 1
+            if st.session_state._log_counter % LOG_FREQUENCY == 0:
+                append_to_log_live(latest)
+            df = None  # No history DataFrame in live mode
+        else:
+            # Demo mode: existing sequential playback
+            try:
+                df = get_demo_data()
+            except Exception as e:
+                st.error(f"Could not load data: {e}")
+                return
+            if st.session_state.live_mode:
+                append_to_log(df.iloc[[-1]])
+            latest = df.iloc[-1]
 
-        if st.session_state.live_mode:
-            append_to_log(df.iloc[[-1]])
-
-        latest     = df.iloc[-1]
         emotion    = latest['primary_emotion']
         emotion_col_map = {
             'Happy': 'happy_score', 'Sad': 'sad_score', 'Fear': 'fear_score',
@@ -391,56 +480,58 @@ if page == "📊 Live Dashboard":
             v_color  = "#9CA3AF"
             a_color  = "#9CA3AF"
 
-        current_frame = st.session_state.demo_frame
-        progress_pct  = current_frame / TOTAL_DEMO_FRAMES
-        if current_frame < TOTAL_DEMO_FRAMES:
-            current_scenario = DEMO_FRAMES[max(0, current_frame - 1)]["scenario"]
-        else:
-            current_scenario = "Complete"
-        st.markdown(
-            '<div style="background:#FFFFFF;border-radius:10px;padding:12px 16px;'
-            'box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:16px;">'
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-            f'<span style="font-size:13px;font-weight:600;color:#111111;">Demo Progress</span>'
-            f'<span style="font-size:12px;color:#6B7280;">{current_scenario} &nbsp;·&nbsp; {current_frame}/{TOTAL_DEMO_FRAMES} frames</span>'
-            '</div>'
-            '<div style="background:#E5E7EB;border-radius:999px;height:8px;overflow:hidden;">'
-            f'<div style="background:#111111;height:8px;border-radius:999px;width:{progress_pct*100:.1f}%;"></div>'
-            '</div>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-        if live and st.session_state.get('demo_complete', False):
+        # Demo-only UI elements (progress bar, scenario banner)
+        if not is_live_source:
+            current_frame = st.session_state.demo_frame
+            progress_pct  = current_frame / TOTAL_DEMO_FRAMES
+            if current_frame < TOTAL_DEMO_FRAMES:
+                current_scenario = DEMO_FRAMES[max(0, current_frame - 1)]["scenario"]
+            else:
+                current_scenario = "Complete"
             st.markdown(
-                '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;'
-                'padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">'
-                '<div>'
-                '<div style="font-size:14px;font-weight:700;color:#166534;margin-bottom:4px;">✅ Demo sequence complete</div>'
-                '<div style="font-size:13px;color:#166534;">All scenarios have played through. Would you like to run it again?</div>'
+                '<div style="background:#FFFFFF;border-radius:10px;padding:12px 16px;'
+                'box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-bottom:16px;">'
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+                f'<span style="font-size:13px;font-weight:600;color:#111111;">Demo Progress</span>'
+                f'<span style="font-size:12px;color:#6B7280;">{current_scenario} &nbsp;·&nbsp; {current_frame}/{TOTAL_DEMO_FRAMES} frames</span>'
+                '</div>'
+                '<div style="background:#E5E7EB;border-radius:999px;height:8px;overflow:hidden;">'
+                f'<div style="background:#111111;height:8px;border-radius:999px;width:{progress_pct*100:.1f}%;"></div>'
+                '</div>'
                 '</div>',
                 unsafe_allow_html=True
             )
-            if st.button("↺ Run Again", type="primary"):
-                st.session_state.demo_frame    = 0
-                st.session_state.session_start = datetime.now()
-                st.session_state.demo_complete = False
-                st.session_state.live_mode     = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        if not st.session_state.get('demo_complete', False) and 'scenario' in latest and pd.notna(latest.get('scenario','')):
-            scenario  = latest['scenario']
-            demo_note = DEMO_NOTES.get(scenario, '')
-            st.markdown(
-                f'<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;'
-                f'padding:12px 18px;margin-bottom:16px;">'
-                f'<div style="font-size:14px;font-weight:700;color:#1D4ED8;margin-bottom:4px;">'
-                f'🎬 Demo: {scenario}</div>'
-                f'<div style="font-size:13px;color:#1E40AF;line-height:1.5;">{demo_note}</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            if live and st.session_state.get('demo_complete', False):
+                st.markdown(
+                    '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;'
+                    'padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">'
+                    '<div>'
+                    '<div style="font-size:14px;font-weight:700;color:#166534;margin-bottom:4px;">✅ Demo sequence complete</div>'
+                    '<div style="font-size:13px;color:#166534;">All scenarios have played through. Would you like to run it again?</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+                if st.button("↺ Run Again", type="primary"):
+                    st.session_state.demo_frame    = 0
+                    st.session_state.session_start = datetime.now()
+                    st.session_state.demo_complete = False
+                    st.session_state.live_mode     = True
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            if not st.session_state.get('demo_complete', False) and 'scenario' in latest and pd.notna(latest.get('scenario','')):
+                scenario  = latest['scenario']
+                demo_note = DEMO_NOTES.get(scenario, '')
+                st.markdown(
+                    f'<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;'
+                    f'padding:12px 18px;margin-bottom:16px;">'
+                    f'<div style="font-size:14px;font-weight:700;color:#1D4ED8;margin-bottom:4px;">'
+                    f'🎬 Demo: {scenario}</div>'
+                    f'<div style="font-size:13px;color:#1E40AF;line-height:1.5;">{demo_note}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
         badge = (
             '<span style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">● LIVE</span>'
@@ -523,13 +614,29 @@ if page == "📊 Live Dashboard":
             '</div>'
         ), unsafe_allow_html=True)
 
+        # Signal quality chart — use demo DataFrame or event log history
+        if is_live_source:
+            chart_log = load_log().tail(24)
+            if not chart_log.empty:
+                chart_x = pd.to_datetime(chart_log['timestamp'])
+                chart_vq = chart_log['video_quality']
+                chart_aq = chart_log['audio_quality']
+            else:
+                chart_x = pd.Series(dtype='datetime64[ns]')
+                chart_vq = pd.Series(dtype='float64')
+                chart_aq = pd.Series(dtype='float64')
+        else:
+            chart_x = df['timestamp']
+            chart_vq = df['video_signal_quality']
+            chart_aq = df['audio_signal_quality']
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=df['timestamp'], y=df['video_signal_quality'],
+            x=chart_x, y=chart_vq,
             mode='lines', name='Video Signal', line=dict(color='#111111', width=2)
         ))
         fig.add_trace(go.Scatter(
-            x=df['timestamp'], y=df['audio_signal_quality'],
+            x=chart_x, y=chart_aq,
             mode='lines', name='Audio Signal', line=dict(color='#9CA3AF', width=2, dash='dot')
         ))
         fig.update_layout(

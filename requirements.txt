@@ -12,9 +12,13 @@ tf-keras>=2.16.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
 
+# Pipeline — System monitoring
+psutil>=5.9.0
+
 # Pipeline — Audio model
 torch>=2.0.0
 torchaudio>=2.0.0
 funasr>=1.0.0
+huggingface-hub>=1.0.0
 sounddevice>=0.4.6
 soundfile>=0.12.0

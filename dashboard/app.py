@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from model_performance import (
     generate_confusion_matrix, accuracy_from_matrix, f1_from_matrix,
-    generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS
+    generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS,
+    get_available_approaches, approach_display_name,
 )
 
 st.set_page_config(
@@ -276,8 +277,10 @@ if 'demo_frame' not in st.session_state:
     st.session_state.demo_frame = 0
 if 'demo_complete' not in st.session_state:
     st.session_state.demo_complete = False
+if 'selected_approach' not in st.session_state:
+    st.session_state.selected_approach = 'mlp_pred'
 if 'conf_matrix' not in st.session_state:
-    st.session_state.conf_matrix = generate_confusion_matrix()
+    st.session_state.conf_matrix = generate_confusion_matrix(st.session_state.selected_approach)
 if 'cpu_history' not in st.session_state:
     st.session_state.cpu_history = generate_cpu_history()
 if 'latency' not in st.session_state:
@@ -725,23 +728,26 @@ elif page == "📋 Event Timeline":
 elif page == "🧠 Model Performance":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
-    # Header + Refresh button
-    header_col, btn_col = st.columns([8, 1])
+    # Header + approach selector
+    header_col, selector_col = st.columns([6, 3])
     with header_col:
         st.markdown(
             '<div style="margin-bottom:24px;">' +
             '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">AIRA · ML Analytics</div>' +
             '<div style="font-size:22px;font-weight:700;color:#18181B;">Model Performance</div>' +
+            '<div style="font-size:12px;color:#6B7280;margin-top:4px;">RAVDESS test set — 300 clips, 5 held-out actors (speaker-independent)</div>' +
             '</div>',
             unsafe_allow_html=True
         )
-    with btn_col:
-        if st.button("🔄 Refresh", use_container_width=True):
-            st.session_state.conf_matrix = generate_confusion_matrix()
-            st.session_state.latency = generate_latency()
-            cpu_last = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
-            new_cpu = cpu_last + np.random.uniform(-6, 6)
-            st.session_state.cpu_history = st.session_state.cpu_history + [max(5, min(90, round(new_cpu, 1)))]
+    with selector_col:
+        approaches = get_available_approaches()
+        display_names = [approach_display_name(a) for a in approaches]
+        current_idx = approaches.index(st.session_state.selected_approach) if st.session_state.selected_approach in approaches else len(approaches) - 1
+        selected_display = st.selectbox("Fusion Approach", display_names, index=current_idx)
+        selected_approach = approaches[display_names.index(selected_display)]
+        if selected_approach != st.session_state.selected_approach:
+            st.session_state.selected_approach = selected_approach
+            st.session_state.conf_matrix = generate_confusion_matrix(selected_approach)
             st.rerun()
 
     # Metrics from session state

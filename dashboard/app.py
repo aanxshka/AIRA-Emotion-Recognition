@@ -374,55 +374,70 @@ if page == "📊 Live Dashboard":
 
     with source_col:
         st.markdown('<div style="padding-top:12px;">', unsafe_allow_html=True)
-        source = st.radio("Data Source", ["Demo", "Live"], horizontal=True, label_visibility="collapsed")
-        st.session_state.data_source = source.lower()
+        current_idx = 1 if st.session_state.data_source == 'live' else 0
+        source = st.radio("Data Source", ["Demo", "Live"], index=current_idx,
+                          horizontal=True, label_visibility="collapsed")
+        new_source = source.lower()
+        if new_source != st.session_state.data_source:
+            st.session_state.data_source = new_source
+            if new_source == 'live':
+                st.session_state.live_mode = True  # Auto-start refresh for live
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     with controls_col:
         st.markdown('<div style="padding-top:6px;">', unsafe_allow_html=True)
-        btn_col, restart_col, skip_col, prog_col = st.columns([0.8, 0.8, 0.8, 4])
+        if st.session_state.data_source == 'live':
+            st.markdown(
+                '<div style="padding-top:10px;font-size:12px;color:#6B7280;">'
+                '📡 Live mode — reading from pipeline</div>',
+                unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            btn_col, restart_col, skip_col, prog_col = st.columns([0.8, 0.8, 0.8, 4])
 
-        with btn_col:
-            is_live = st.session_state.live_mode
-            label   = "⏸ Pause" if is_live else "▶ Play"
-            if st.button(label, use_container_width=True):
-                if not is_live:
+            with btn_col:
+                is_live = st.session_state.live_mode
+                label   = "⏸ Pause" if is_live else "▶ Play"
+                if st.button(label, use_container_width=True):
+                    if not is_live:
+                        st.session_state.demo_frame    = 0
+                        st.session_state.session_start = datetime.now()
+                        st.session_state.demo_complete = False
+                    st.session_state.live_mode = not is_live
+                    st.rerun()
+
+            with restart_col:
+                if st.button("↺ Reset", use_container_width=True):
                     st.session_state.demo_frame    = 0
                     st.session_state.session_start = datetime.now()
                     st.session_state.demo_complete = False
-                st.session_state.live_mode = not is_live
-                st.rerun()
+                    st.session_state.live_mode     = True
+                    st.rerun()
 
-        with restart_col:
-            if st.button("↺ Reset", use_container_width=True):
-                st.session_state.demo_frame    = 0
-                st.session_state.session_start = datetime.now()
-                st.session_state.demo_complete = False
-                st.session_state.live_mode     = True
-                st.rerun()
+            with skip_col:
+                if st.button("⏭ Skip", use_container_width=True):
+                    current = st.session_state.demo_frame
+                    current_scenario = DEMO_FRAMES[current % TOTAL_DEMO_FRAMES]["scenario"]
+                    next_frame = current + 1
+                    while next_frame < TOTAL_DEMO_FRAMES:
+                        if DEMO_FRAMES[next_frame]["scenario"] != current_scenario:
+                            break
+                        next_frame += 1
+                    if next_frame >= TOTAL_DEMO_FRAMES:
+                        st.session_state.demo_complete = True
+                    else:
+                        st.session_state.demo_frame    = next_frame
+                        st.session_state.demo_complete = False
+                    st.session_state.live_mode = True
+                    st.rerun()
 
-        with skip_col:
-            if st.button("⏭ Skip", use_container_width=True):
-                current = st.session_state.demo_frame
-                current_scenario = DEMO_FRAMES[current % TOTAL_DEMO_FRAMES]["scenario"]
-                next_frame = current + 1
-                while next_frame < TOTAL_DEMO_FRAMES:
-                    if DEMO_FRAMES[next_frame]["scenario"] != current_scenario:
-                        break
-                    next_frame += 1
-                if next_frame >= TOTAL_DEMO_FRAMES:
-                    st.session_state.demo_complete = True
-                else:
-                    st.session_state.demo_frame    = next_frame
-                    st.session_state.demo_complete = False
-                st.session_state.live_mode = True
-                st.rerun()
+            with prog_col:
+                st.markdown('<div id="demo-progress-placeholder" style="padding-top:4px;"></div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with prog_col:
-            st.markdown('<div id="demo-progress-placeholder" style="padding-top:4px;"></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    @st.fragment(run_every=REFRESH_INTERVAL if st.session_state.live_mode else None)
+    _auto_refresh = st.session_state.live_mode or st.session_state.data_source == 'live'
+    @st.fragment(run_every=REFRESH_INTERVAL if _auto_refresh else None)
     def render_dashboard():
         live = st.session_state.live_mode
         is_live_source = st.session_state.data_source == 'live'

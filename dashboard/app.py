@@ -564,27 +564,51 @@ elif page == "📋 Event Timeline":
     else:
         log_df = log_df.sort_values('timestamp', ascending=False)
 
-        st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:20px;">', unsafe_allow_html=True)
-        filter_col1, filter_col2, filter_col3 = st.columns([2,2,1])
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns([2, 2, 2, 1, 1])
         with filter_col1:
-            conf_filter = st.selectbox("Confidence", ["All","High (> 60%)","Medium (40–60%)","Low (< 40%)"])
+            _cfg = load_config()
+            _conf_red = _cfg["conf_red"]
+            _conf_amber = _cfg["conf_amber"]
+            conf_filter = st.selectbox("Confidence", [
+                "All",
+                f"High (>= {_conf_amber}%)",
+                f"Medium ({_conf_red}-{_conf_amber}%)",
+                f"Low (< {_conf_red}%)",
+            ])
         with filter_col2:
-            all_emotions   = ["All"] + sorted(log_df['primary_emotion'].unique().tolist())
+            all_emotions = ["All"] + sorted(log_df['primary_emotion'].unique().tolist())
             emotion_filter = st.selectbox("Emotion", all_emotions)
         with filter_col3:
+            sort_by = st.selectbox("Sort by", [
+                "Time (newest first)",
+                "Time (oldest first)",
+                "Confidence (high to low)",
+                "Confidence (low to high)",
+                "Emotion (A-Z)",
+            ])
+        with filter_col4:
             st.markdown('<div style="padding-top:28px;">', unsafe_allow_html=True)
             if st.button("🗑 Clear Log", use_container_width=True):
                 if os.path.exists(LOG_PATH):
                     os.remove(LOG_PATH)
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with filter_col5:
+            st.markdown('<div style="padding-top:28px;">', unsafe_allow_html=True)
+            export_format = "CSV"
+            st.markdown('</div>', unsafe_allow_html=True)
 
         filtered = log_df.copy()
-        if conf_filter == "High (> 60%)":      filtered = filtered[filtered['confidence_band']=='high']
-        elif conf_filter == "Medium (40–60%)": filtered = filtered[filtered['confidence_band']=='medium']
-        elif conf_filter == "Low (< 40%)":     filtered = filtered[filtered['confidence_band']=='low']
+        if conf_filter.startswith("High"):     filtered = filtered[filtered['confidence_band']=='high']
+        elif conf_filter.startswith("Medium"): filtered = filtered[filtered['confidence_band']=='medium']
+        elif conf_filter.startswith("Low"):    filtered = filtered[filtered['confidence_band']=='low']
         if emotion_filter != "All":            filtered = filtered[filtered['primary_emotion']==emotion_filter]
+
+        if sort_by == "Time (newest first)":        filtered = filtered.sort_values('timestamp', ascending=False)
+        elif sort_by == "Time (oldest first)":      filtered = filtered.sort_values('timestamp', ascending=True)
+        elif sort_by == "Confidence (high to low)": filtered = filtered.sort_values('confidence', ascending=False)
+        elif sort_by == "Confidence (low to high)": filtered = filtered.sort_values('confidence', ascending=True)
+        elif sort_by == "Emotion (A-Z)":            filtered = filtered.sort_values('primary_emotion', ascending=True)
 
         total  = len(filtered)
         n_high = len(filtered[filtered['confidence_band']=='high'])
@@ -606,44 +630,43 @@ elif page == "📋 Event Timeline":
                     f'</div>', unsafe_allow_html=True
                 )
 
+        if not filtered.empty:
+            import io as _io
+            export_cols = ['timestamp','primary_emotion','confidence','confidence_band',
+                           'happy','sad','fear','angry','disgust','neutral',
+                           'video_quality','audio_quality']
+            export_df = filtered[[c for c in export_cols if c in filtered.columns]].copy()
+            st.download_button(
+                    label="⬇ Download CSV",
+                    data=export_df.to_csv(index=False).encode('utf-8'),
+                    file_name=f"aira_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                )
+
         if filtered.empty:
             st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:32px;text-align:center;color:#6B7280;font-size:14px;">No events match the current filters.</div>', unsafe_allow_html=True)
         else:
-            selected_row = None
-            for _, ev in filtered.head(100).iterrows():
-                ts   = pd.to_datetime(ev['timestamp']).strftime('%H:%M:%S')
-                conf = float(ev['confidence'])
-                c_col = conf_color(conf)
+            display_df = filtered[['timestamp','primary_emotion','confidence','confidence_band','video_quality','audio_quality']].copy()
+            display_df['timestamp'] = pd.to_datetime(display_df['timestamp']).dt.strftime('%H:%M:%S')
+            display_df.columns = ['Time','Emotion','Confidence (%)','Band','Video Quality (%)','Audio Quality (%)']
 
-                ca,cb,cc,cd,ce = st.columns([1.5,2,2,1.5,0.8])
-                with ca:
-                    st.markdown(f'<div style="font-size:13px;font-weight:600;color:#111111;padding-top:10px;">{ts}</div>', unsafe_allow_html=True)
-                with cb:
-                    st.markdown(f'<div style="font-size:14px;font-weight:700;color:#111111;padding-top:10px;">{ev["primary_emotion"]}</div>', unsafe_allow_html=True)
-                with cc:
-                    st.markdown(
-                        f'<div style="padding-top:6px;">'
-                        f'<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Confidence</div>'
-                        f'<div style="display:flex;align-items:center;gap:8px;">'
-                        f'<div style="flex:1;background:#E5E7EB;border-radius:999px;height:6px;overflow:hidden;">'
-                        f'<div style="background:{c_col};height:6px;border-radius:999px;width:{min(conf,100)}%;"></div>'
-                        f'</div>'
-                        f'<div style="font-size:13px;font-weight:600;color:{c_col};min-width:40px;">{conf:.1f}%</div>'
-                        f'</div></div>', unsafe_allow_html=True
-                    )
-                with cd:
-                    st.markdown(f'<div style="padding-top:10px;">{band_badge(ev["confidence_band"])}</div>', unsafe_allow_html=True)
-                with ce:
-                    if st.button("Inspect", key=f"ins_{ev['timestamp']}"):
-                        selected_row = ev
-                st.markdown('<hr style="border-color:#E5E7EB;margin:6px 0;">', unsafe_allow_html=True)
+            event = st.dataframe(
+                display_df,
+                use_container_width=True,
+                height=400,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+            )
 
-            if selected_row is not None:
-                ev     = selected_row
+            selected_indices = event.selection.rows if event.selection else []
+
+            st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
+            if selected_indices:
+                ev     = filtered.iloc[selected_indices[0]]
                 ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-                st.markdown(f'<div style="margin-top:24px;font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
-
-                d1,d2 = st.columns(2)
+                st.markdown(f'<div style="font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
+                d1, d2 = st.columns(2)
                 with d1:
                     st.markdown((
                         '<div style="background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">'
@@ -655,9 +678,9 @@ elif page == "📋 Event Timeline":
                         '</div>'
                     ), unsafe_allow_html=True)
                 with d2:
-                    el = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
+                    el      = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
                     ev_vals = [ev['happy'],ev['sad'],ev['fear'],ev['angry'],ev['disgust'],ev['neutral']]
-                    fig_ev = go.Figure(go.Bar(
+                    fig_ev  = go.Figure(go.Bar(
                         x=el, y=ev_vals,
                         marker_color=['#111111' if e==ev['primary_emotion'] else '#E5E7EB' for e in el],
                         text=[f'{v:.1f}%' for v in ev_vals], textposition='outside'
@@ -671,6 +694,12 @@ elif page == "📋 Event Timeline":
                         showlegend=False, font=dict(color='#111111')
                     )
                     st.plotly_chart(fig_ev, use_container_width=True)
+            else:
+                st.markdown(
+                    '<div style="background:#F9FAFB;border:1px dashed #E4E4E7;border-radius:12px;padding:32px;'
+                    'text-align:center;color:#9CA3AF;font-size:14px;">Click a row in the table above to see details here</div>',
+                    unsafe_allow_html=True
+                )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -874,9 +903,34 @@ elif page == "⚙️ Settings":
             '<div style="font-size:13px;color:#6B7280;margin-bottom:12px;">Define what counts as low, medium, and high confidence for your model.</div>',
             unsafe_allow_html=True
         )
-        new_conf_red   = st.slider("Red threshold — low confidence (%)", 10, 60, current["conf_red"])
-        new_conf_amber = st.slider("Amber threshold — degraded warning (%)", new_conf_red+5, 90,
-                                    max(current["conf_amber"], new_conf_red+5))
+        thresholds = st.slider(
+            "Confidence thresholds (%)",
+            min_value=0,
+            max_value=100,
+            value=(current["conf_red"], current["conf_amber"]),
+            help="Left handle = Red threshold. Right handle = Amber threshold.",
+        )
+        new_conf_red, new_conf_amber = thresholds
+
+        low_pct    = new_conf_red
+        medium_pct = new_conf_amber - new_conf_red
+        high_pct   = 100 - new_conf_amber
+        st.markdown(
+            f'''<div style="margin-top:8px;margin-bottom:16px;">
+                <div style="display:flex;border-radius:8px;overflow:hidden;height:28px;">
+                    <div style="flex:{low_pct};background:#FEE2E2;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#DC2626;">Low &lt;{new_conf_red}%</span>
+                    </div>
+                    <div style="flex:{medium_pct};background:#FEF3C7;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#D97706;">{new_conf_red}–{new_conf_amber}%</span>
+                    </div>
+                    <div style="flex:{high_pct};background:#DCFCE7;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#166534;">High ≥{new_conf_amber}%</span>
+                    </div>
+                </div>
+            </div>''',
+            unsafe_allow_html=True
+        )
         new_recovery   = st.slider("Recovery frames to close a low-confidence event", 1, 10, current["recovery_frames"])
 
     col_save, col_status = st.columns([1, 3])

@@ -21,6 +21,7 @@ import threading
 import queue
 import numpy as np
 import cv2
+import psutil
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox
 from datetime import datetime
@@ -70,6 +71,7 @@ CSV_COLUMNS = [
     'disgust_score', 'neutral_score', 'surprise_score',
     'video_signal_quality', 'audio_signal_quality',
     'video_feed_active', 'audio_feed_active',
+    'face_latency_ms', 'audio_latency_ms', 'cpu_usage',
 ]
 
 # MLP model path
@@ -239,6 +241,7 @@ class DeepFaceAudioFusionApp:
 
         # Metrics
         self.face_latency = 0.0
+        self.audio_latency = 0.0
         self.face_fps = 0.0
         self._face_frame_count = 0
         self._face_fps_time = time.time()
@@ -763,6 +766,9 @@ class DeepFaceAudioFusionApp:
             ) if self._audio_detections else 0.0,
             'video_feed_active': bool(face_for_fusion and not face_stale),
             'audio_feed_active': bool(audio_result and not audio_stale),
+            'face_latency_ms': round(self.face_latency * 1000, 1),
+            'audio_latency_ms': round(self.audio_latency * 1000, 1),
+            'cpu_usage': round(psutil.cpu_percent(interval=None), 1),
         }
 
         try:
@@ -1033,7 +1039,9 @@ class DeepFaceAudioFusionApp:
                         print(f"[Audio] VAD: no speech (skipped {skip_count})")
                     continue
 
+                audio_start = time.time()
                 result = self.audio_extractor.extract(chunk, SAMPLE_RATE)
+                self.audio_latency = time.time() - audio_start
 
                 if first_result:
                     print(f"[Audio] First result: {result.get('top_emotion')} "

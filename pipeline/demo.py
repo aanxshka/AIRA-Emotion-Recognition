@@ -242,6 +242,8 @@ class DeepFaceAudioFusionApp:
         # Metrics
         self.face_latency = 0.0
         self.audio_latency = 0.0
+        self._cpu_usage = 0.0
+        self._start_cpu_monitor()
         self.face_fps = 0.0
         self._face_frame_count = 0
         self._face_fps_time = time.time()
@@ -768,7 +770,7 @@ class DeepFaceAudioFusionApp:
             'audio_feed_active': bool(audio_result and not audio_stale),
             'face_latency_ms': round(self.face_latency * 1000, 1),
             'audio_latency_ms': round(self.audio_latency * 1000, 1),
-            'cpu_usage': round(psutil.cpu_percent(interval=None), 1),
+            'cpu_usage': round(self._cpu_usage, 1),
         }
 
         try:
@@ -910,6 +912,19 @@ class DeepFaceAudioFusionApp:
         # Schedule next update
         if self.running:
             self.root.after(100, self.update_fusion_display)
+
+    # ========================================================================
+    # CPU Monitor
+    # ========================================================================
+
+    def _start_cpu_monitor(self):
+        """Background thread that samples CPU usage every 1 second."""
+        def _monitor():
+            psutil.cpu_percent()  # Prime the first call (always returns 0.0)
+            while True:
+                self._cpu_usage = psutil.cpu_percent(interval=1.0)
+        t = threading.Thread(target=_monitor, daemon=True)
+        t.start()
 
     # ========================================================================
     # Processing Loops

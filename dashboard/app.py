@@ -257,6 +257,18 @@ st.markdown("""
         border-right: 1px solid #E4E4E7 !important;
     }
     .stRadio label { font-size: 13px !important; color: #374151 !important; }
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    [data-testid="stSidebar"] [role="radiogroup"] label p,
+    [data-testid="stSidebar"] [role="radiogroup"] label span {
+        color: #111111 !important;
+        font-weight: 500 !important;
+        font-size: 15px !important;
+        line-height: 1.2 !important;
+    }
     [data-testid="stSidebar"] hr { border-color: #E4E4E7 !important; }
     [data-testid="stSidebarCollapseButton"],
     [data-testid="collapsedControl"],
@@ -334,7 +346,7 @@ if 'latency' not in st.session_state:
 
 page = st.sidebar.radio(
     "Navigation",
-    ["📊 Live Dashboard", "📋 Event Timeline", "🧠 Model Performance", "⚙️ Settings"],
+    ["📊 Dashboard", "📋 Timeline", "🧠 Performance", "⚙️ Settings"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown(
@@ -357,7 +369,7 @@ st.sidebar.markdown(
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — LIVE DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "📊 Live Dashboard":
+if page == "📊 Dashboard":
 
     header_col, source_col, controls_col = st.columns([3, 1.5, 3.5])
 
@@ -691,7 +703,7 @@ if page == "📊 Live Dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — EVENT TIMELINE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📋 Event Timeline":
+elif page == "📋 Timeline":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
     st.markdown(
@@ -901,7 +913,7 @@ elif page == "📋 Event Timeline":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — MODEL PERFORMANCE  (rebuilt to match dashboard.py)
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧠 Model Performance":
+elif page == "🧠 Performance":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
     # Header + approach selector

@@ -446,7 +446,15 @@ if page == "📊 Live Dashboard":
             # Live mode: read latest row from pipeline CSV
             latest, is_stale = get_live_data()
             if latest is None:
-                st.warning("No live data found. Start the pipeline first.")
+                st.markdown(
+                    '<div style="background:#FFFFFF;border:1px solid #E4E4E7;border-radius:12px;'
+                    'padding:48px;text-align:center;margin-top:20px;">'
+                    '<div style="font-size:32px;margin-bottom:12px;">📡</div>'
+                    '<div style="font-size:16px;font-weight:600;color:#111111;margin-bottom:8px;">No live data found</div>'
+                    '<div style="font-size:13px;color:#6B7280;">Start the pipeline first, then the dashboard will begin displaying emotions automatically.</div>'
+                    '</div>',
+                    unsafe_allow_html=True
+                )
                 return
             # Don't return on stale — show last known state, just skip logging
             if not is_stale:

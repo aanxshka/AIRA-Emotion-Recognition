@@ -7,6 +7,9 @@ import json
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io, base64
+import matplotlib
+matplotlib.use("Agg")
 from model_performance import (
     generate_confusion_matrix, accuracy_from_matrix, f1_from_matrix,
     generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS,
@@ -19,7 +22,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ── CONFIG ────────────────────────────────────────────────────────────────────
 CONFIG_PATH = "data/settings.json"
 LOG_PATH    = "data/event_log.csv"
 DATA_PATH   = "data/emotion_data.csv"
@@ -51,7 +53,6 @@ CONF_RED         = cfg["conf_red"]
 CONF_AMBER       = cfg["conf_amber"]
 RECOVERY_FRAMES  = cfg["recovery_frames"]
 
-# ── DEMO NOTES — hardcoded UI logic, not data ─────────────────────────────────
 DEMO_NOTES = {
     "😊 Normal Operation":    "The model is detecting a stable Happy emotion with high confidence. Both video and audio feeds are active and signal quality is strong.",
     "🔄 Emotion Cycling":     "The detected emotion is shifting as the subject's mood changes. Each emotion registers across the All Emotion Scores panel in real time.",
@@ -60,7 +61,6 @@ DEMO_NOTES = {
     "📵 Feed Lost":            "The video feed has been lost. Without visual input the model's confidence drops significantly. The feed indicator turns red until the connection is restored.",
 }
 
-# ── DEMO SEQUENCE — loaded from CSV ─────────────────────────────────────────
 def load_demo_frames():
     df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
     return df.to_dict('records')
@@ -117,45 +117,28 @@ def append_to_log(df_new):
             out = out.drop(columns=['confidence_band'])
         out.to_csv(LOG_PATH, index=False)
 
-# ── DEMO DATA BUILDER ─────────────────────────────────────────────────────────
 def get_demo_data():
-    """
-    Returns a DataFrame of the last 24 frames leading up to the current frame.
-    Timestamps are remapped to NOW so the chart always looks live.
-    Frame counter advances ONCE after data is fully built.
-    """
     if 'demo_frame' not in st.session_state:
         st.session_state.demo_frame = 0
-
     current_idx = st.session_state.demo_frame
     history_len = 24
     indices     = [(current_idx - history_len + 1 + i) % TOTAL_DEMO_FRAMES
                    for i in range(history_len)]
-
     now  = datetime.now()
     rows = []
     for offset, idx in enumerate(indices):
         frame = DEMO_FRAMES[idx].copy()
         frame['timestamp'] = now - timedelta(seconds=(history_len - 1 - offset) * REFRESH_INTERVAL)
         rows.append(frame)
-
     df = pd.DataFrame(rows)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    # Advance frame ONCE after data is fully built
     next_frame = current_idx + 1
     if next_frame >= TOTAL_DEMO_FRAMES:
         st.session_state.demo_complete = True
     else:
         st.session_state.demo_frame = next_frame
-
     return df
 
-def load_real_data():
-    # Kept for reference — no longer used in the app
-    pass
-
-# ── CONFIDENCE HELPERS ────────────────────────────────────────────────────────
 def conf_color(c):
     if c < CONF_RED:   return "#DC2626"
     if c < CONF_AMBER: return "#D97706"
@@ -180,12 +163,17 @@ def band_badge(band):
         return '<span style="background:#FEF3C7;color:#D97706;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;">Medium</span>'
     return '<span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;">High</span>'
 
-# ── GLOBAL CSS ────────────────────────────────────────────────────────────────
+# ── Helper: fig to base64 ──────────────────────────────────────────────────────
+def fig_to_b64_local(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode()
+
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-    /* ── RESET — white background everywhere ── */
     html, body, .stApp,
     [data-testid="stAppViewContainer"],
     [data-testid="stMainBlockContainer"],
@@ -199,7 +187,6 @@ st.markdown("""
     .stApp > header { background-color: #FFFFFF !important; border-bottom: none !important; }
     .block-container { padding-top: 4rem; padding-bottom: 2rem; }
 
-    /* ── SIDEBAR — white ── */
     [data-testid="stSidebar"],
     [data-testid="stSidebar"] > div,
     [data-testid="stSidebar"] section {
@@ -212,7 +199,6 @@ st.markdown("""
     [data-testid="collapsedControl"],
     button[kind="header"] { display: none !important; }
 
-    /* ── WHITE CARDS — st.container(border=True) ── */
     [data-testid="stVerticalBlockBorderWrapper"],
     [data-testid="stVerticalBlockBorderWrapper"] > div {
         background-color: #FFFFFF !important;
@@ -226,7 +212,6 @@ st.markdown("""
         background-color: #FFFFFF !important;
     }
 
-    /* ── BUTTONS ── */
     .stButton > button {
         background: #FFFFFF !important;
         color: #111111 !important;
@@ -240,18 +225,15 @@ st.markdown("""
     .stButton > button[kind="primary"] { background: #111111 !important; color: #FFFFFF !important; border-color: #111111 !important; }
     .stButton > button[kind="primary"]:hover { background: #374151 !important; }
 
-    /* ── SLIDERS — force black, kill red ── */
     [data-testid="stSlider"] { padding: 0 !important; }
     [data-testid="stSlider"] label { font-size: 13px !important; font-weight: 600 !important; color: #374151 !important; }
     [data-testid="stSlider"] [role="progressbar"] { background-color: #111111 !important; }
     [data-testid="stSlider"] [role="slider"] { background-color: #111111 !important; border-color: #111111 !important; }
     [data-testid="stThumbValue"] { color: #111111 !important; font-weight: 700 !important; }
 
-    /* ── SELECTBOX ── */
     [data-testid="stSelectbox"] label { font-size: 13px !important; font-weight: 600 !important; color: #374151 !important; }
     [data-baseweb="select"] > div { border-color: #E4E4E7 !important; border-radius: 8px !important; }
 
-    /* ── CHART WRAPPER ── */
     .diagnostics-chart-wrapper {
         background-color: #FFFFFF;
         border-radius: 0 0 12px 12px;
@@ -262,13 +244,10 @@ st.markdown("""
     }
     .diagnostics-chart-wrapper .element-container { margin: 0 !important; padding: 0 !important; }
 
-    /* ── ALERTS ── */
     [data-testid="stAlert"] { border-radius: 8px !important; }
     </style>
 """, unsafe_allow_html=True)
 
-
-# ── SESSION STATE DEFAULTS ────────────────────────────────────────────────────
 if 'live_mode' not in st.session_state:
     st.session_state.live_mode = False
 if 'session_start' not in st.session_state:
@@ -286,7 +265,6 @@ if 'cpu_history' not in st.session_state:
 if 'latency' not in st.session_state:
     st.session_state.latency = generate_latency()
 
-# ── NAVIGATION ────────────────────────────────────────────────────────────────
 page = st.sidebar.radio(
     "Navigation",
     ["📊 Live Dashboard", "📋 Event Timeline", "🧠 Model Performance", "⚙️ Settings"],
@@ -354,7 +332,6 @@ if page == "📊 Live Dashboard":
             if st.button("⏭ Skip", use_container_width=True):
                 current = st.session_state.demo_frame
                 current_scenario = DEMO_FRAMES[current % TOTAL_DEMO_FRAMES]["scenario"]
-                # Advance until we hit a frame with a different scenario
                 next_frame = current + 1
                 while next_frame < TOTAL_DEMO_FRAMES:
                     if DEMO_FRAMES[next_frame]["scenario"] != current_scenario:
@@ -387,7 +364,6 @@ if page == "📊 Live Dashboard":
 
         latest     = df.iloc[-1]
         emotion    = latest['primary_emotion']
-        # Use the normalised emotion score as confidence so left and right panels always match
         emotion_col_map = {
             'Happy': 'happy_score', 'Sad': 'sad_score', 'Fear': 'fear_score',
             'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score',
@@ -415,7 +391,6 @@ if page == "📊 Live Dashboard":
             v_color  = "#9CA3AF"
             a_color  = "#9CA3AF"
 
-        # ── PROGRESS BAR ─────────────────────────────────────────────────────
         current_frame = st.session_state.demo_frame
         progress_pct  = current_frame / TOTAL_DEMO_FRAMES
         if current_frame < TOTAL_DEMO_FRAMES:
@@ -436,7 +411,6 @@ if page == "📊 Live Dashboard":
             unsafe_allow_html=True
         )
 
-        # ── DEMO COMPLETE BANNER ──────────────────────────────────────────────
         if live and st.session_state.get('demo_complete', False):
             st.markdown(
                 '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;'
@@ -455,7 +429,6 @@ if page == "📊 Live Dashboard":
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── DEMO SCENARIO BANNER ──────────────────────────────────────────────
         if not st.session_state.get('demo_complete', False) and 'scenario' in latest and pd.notna(latest.get('scenario','')):
             scenario  = latest['scenario']
             demo_note = DEMO_NOTES.get(scenario, '')
@@ -469,8 +442,6 @@ if page == "📊 Live Dashboard":
                 unsafe_allow_html=True
             )
 
-
-
         badge = (
             '<span style="background:#DCFCE7;color:#166534;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-left:8px;">● LIVE</span>'
             if live else
@@ -481,7 +452,6 @@ if page == "📊 Live Dashboard":
             unsafe_allow_html=True
         )
 
-        # Emotion rows
         emotion_rows_html = ""
         for label, value in zip(emotion_labels, emotion_values):
             emotion_rows_html += (
@@ -607,20 +577,29 @@ elif page == "📋 Event Timeline":
     else:
         log_df = log_df.sort_values('timestamp', ascending=False)
 
-        st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:20px 24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:20px;">', unsafe_allow_html=True)
-        filter_col1, filter_col2, filter_col3 = st.columns([2,2,1])
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns([2, 2, 2, 1, 1])
         with filter_col1:
-            conf_options = [
+            _cfg = load_config()
+            _conf_red = _cfg["conf_red"]
+            _conf_amber = _cfg["conf_amber"]
+            conf_filter = st.selectbox("Confidence", [
                 "All",
-                f"High (≥ {CONF_AMBER}%)",
-                f"Medium ({CONF_RED}–{CONF_AMBER}%)",
-                f"Low (< {CONF_RED}%)",
-            ]
-            conf_filter = st.selectbox("Confidence", conf_options)
+                f"High (>= {_conf_amber}%)",
+                f"Medium ({_conf_red}-{_conf_amber}%)",
+                f"Low (< {_conf_red}%)",
+            ])
         with filter_col2:
-            all_emotions   = ["All"] + sorted(log_df['primary_emotion'].unique().tolist())
+            all_emotions = ["All"] + sorted(log_df['primary_emotion'].unique().tolist())
             emotion_filter = st.selectbox("Emotion", all_emotions)
         with filter_col3:
+            sort_by = st.selectbox("Sort by", [
+                "Time (newest first)",
+                "Time (oldest first)",
+                "Confidence (high to low)",
+                "Confidence (low to high)",
+                "Emotion (A-Z)",
+            ])
+        with filter_col4:
             st.markdown('<div style="padding-top:28px;">', unsafe_allow_html=True)
             if st.button("🗑 Clear Log", use_container_width=True):
                 if os.path.exists(LOG_PATH):
@@ -628,13 +607,22 @@ elif page == "📋 Event Timeline":
                 st.session_state.timeline_page = 0
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with filter_col5:
+            st.markdown('<div style="padding-top:28px;">', unsafe_allow_html=True)
+            export_format = "CSV"
+            st.markdown('</div>', unsafe_allow_html=True)
 
         filtered = log_df.copy()
-        if conf_filter == conf_options[1]:   filtered = filtered[filtered['confidence_band']=='high']
-        elif conf_filter == conf_options[2]: filtered = filtered[filtered['confidence_band']=='medium']
-        elif conf_filter == conf_options[3]: filtered = filtered[filtered['confidence_band']=='low']
+        if conf_filter.startswith("High"):     filtered = filtered[filtered['confidence_band']=='high']
+        elif conf_filter.startswith("Medium"): filtered = filtered[filtered['confidence_band']=='medium']
+        elif conf_filter.startswith("Low"):    filtered = filtered[filtered['confidence_band']=='low']
         if emotion_filter != "All":            filtered = filtered[filtered['primary_emotion']==emotion_filter]
+
+        if sort_by == "Time (newest first)":        filtered = filtered.sort_values('timestamp', ascending=False)
+        elif sort_by == "Time (oldest first)":      filtered = filtered.sort_values('timestamp', ascending=True)
+        elif sort_by == "Confidence (high to low)": filtered = filtered.sort_values('confidence', ascending=False)
+        elif sort_by == "Confidence (low to high)": filtered = filtered.sort_values('confidence', ascending=True)
+        elif sort_by == "Emotion (A-Z)":            filtered = filtered.sort_values('primary_emotion', ascending=True)
 
         total  = len(filtered)
         n_high = len(filtered[filtered['confidence_band']=='high'])
@@ -654,6 +642,19 @@ elif page == "📋 Event Timeline":
                     f'<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">{label}</div>'
                     f'<div style="font-size:28px;font-weight:700;color:{color};">{val}</div>'
                     f'</div>', unsafe_allow_html=True
+                )
+
+        if not filtered.empty:
+            import io as _io
+            export_cols = ['timestamp','primary_emotion','confidence','confidence_band',
+                           'happy','sad','fear','angry','disgust','neutral',
+                           'video_quality','audio_quality']
+            export_df = filtered[[c for c in export_cols if c in filtered.columns]].copy()
+            st.download_button(
+                    label="⬇ Download CSV",
+                    data=export_df.to_csv(index=False).encode('utf-8'),
+                    file_name=f"aira_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
                 )
 
         if filtered.empty:
@@ -723,7 +724,12 @@ elif page == "📋 Event Timeline":
                 ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
                 st.markdown(f'<div style="margin-top:24px;font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
 
-                d1,d2 = st.columns(2)
+            st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
+            if selected_indices:
+                ev     = filtered.iloc[selected_indices[0]]
+                ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+                st.markdown(f'<div style="font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
+                d1, d2 = st.columns(2)
                 with d1:
                     st.markdown((
                         '<div style="background:#FFFFFF;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,0.08);">'
@@ -751,10 +757,16 @@ elif page == "📋 Event Timeline":
                         showlegend=False, font=dict(color='#111111')
                     )
                     st.plotly_chart(fig_ev, use_container_width=True)
+            else:
+                st.markdown(
+                    '<div style="background:#F9FAFB;border:1px dashed #E4E4E7;border-radius:12px;padding:32px;'
+                    'text-align:center;color:#9CA3AF;font-size:14px;">Click a row in the table above to see details here</div>',
+                    unsafe_allow_html=True
+                )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE 3 — MODEL PERFORMANCE
+# PAGE 3 — MODEL PERFORMANCE  (rebuilt to match dashboard.py)
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "🧠 Model Performance":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
@@ -781,119 +793,136 @@ elif page == "🧠 Model Performance":
             st.session_state.conf_matrix = generate_confusion_matrix(selected_approach)
             st.rerun()
 
-    # Metrics from session state
-    mat = st.session_state.conf_matrix
-    acc = accuracy_from_matrix(mat) * 100
-    f1 = f1_from_matrix(mat) * 100
-    lat = st.session_state.latency
-    cpu = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
-    cpu_h = st.session_state.cpu_history
+    # ── Metrics ───────────────────────────────────────────────────────────────
+    mat   = st.session_state.conf_matrix
+    acc   = accuracy_from_matrix(mat) * 100
+    f1    = f1_from_matrix(mat) * 100
+    lat   = st.session_state.latency
+    cpu   = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
+    cpu_h = list(st.session_state.cpu_history)
 
-    # Metric tiles
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">Accuracy</div>'
-            f'<div style="font-size:24px;font-weight:700;color:#2563EB;">{acc:.1f}%</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with m2:
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">F1 Score</div>'
-            f'<div style="font-size:24px;font-weight:700;color:#059669;">{f1:.1f}</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with m3:
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">Latency</div>'
-            f'<div style="font-size:24px;font-weight:700;color:#F59E0B;">{lat}ms</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-    with m4:
-        cpu_color = '#DC2626' if cpu > 80 else '#F59E0B' if cpu > 60 else '#059669'
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:18px 20px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<div style="font-size:11px;font-weight:600;color:#6B7280;margin-bottom:6px;">CPU Usage</div>'
-            f'<div style="font-size:24px;font-weight:700;color:{cpu_color};">{cpu:.1f}%</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+    lat_color = "#16a34a" if lat < 50 else "#d97706" if lat < 70 else "#dc2626"
+    cpu_color = "#16a34a" if cpu < 60 else "#d97706" if cpu < 80 else "#dc2626"
 
-    st.markdown('<div style="margin:28px 0;"></div>', unsafe_allow_html=True)
+    N_emo = len(EMOTIONS)
 
-    # Confusion Matrix
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.heatmap(mat, annot=True, fmt='d', cmap='Blues', xticklabels=EMOTIONS, yticklabels=EMOTIONS, ax=ax, cbar_kws={'label': 'Count'})
-    ax.set_xlabel('Predicted Label', fontsize=12, fontweight='bold')
-    ax.set_ylabel('True Label', fontsize=12, fontweight='bold')
-    ax.set_title('Confusion Matrix - Emotion Classification', fontsize=14, fontweight='bold', pad=20)
-    plt.tight_layout()
-    cm_b64 = fig_to_b64(fig)
+    # ── Build confusion matrix image (smart text colour) ──────────────────────
+    fig1, ax1 = plt.subplots(figsize=(9, 7.5))
+    fig1.patch.set_facecolor("#ffffff")
+    ax1.set_facecolor("#ffffff")
 
-    st.markdown(
-        f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-        f'<img src="data:image/png;base64,{cm_b64}" style="width:100%;height:auto;">'
-        '</div>',
-        unsafe_allow_html=True
+    mat_norm = mat / (mat.max() + 1e-9)
+
+    sns.heatmap(
+        mat,
+        annot=False,
+        cmap="Blues",
+        linewidths=0.5,
+        linecolor="#f0f2f5",
+        xticklabels=EMOTIONS,
+        yticklabels=EMOTIONS,
+        ax=ax1,
+        cbar=False,
     )
+    for i in range(N_emo):
+        for j in range(N_emo):
+            val = mat[i, j]
+            brightness = mat_norm[i, j]
+            text_color = "#ffffff" if brightness > 0.45 else "#374151"
+            ax1.text(
+                j + 0.5, i + 0.5, str(val),
+                ha="center", va="center",
+                fontsize=10, color=text_color, fontweight="600"
+            )
 
-    st.markdown('<div style="margin:20px 0;"></div>', unsafe_allow_html=True)
+    ax1.set_xlabel("Predicted label", color="#6b7280", fontsize=10, labelpad=10)
+    ax1.set_ylabel("True label",      color="#6b7280", fontsize=10, labelpad=10)
+    ax1.tick_params(colors="#6b7280", labelsize=9, length=0)
+    plt.xticks(rotation=45, ha="right", fontsize=9, color="#6b7280")
+    plt.yticks(rotation=0, fontsize=9, color="#6b7280")
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+    fig1.tight_layout(pad=0.8)
+    cm_b64 = fig_to_b64_local(fig1)
+    plt.close(fig1)
 
-    # CPU History Chart
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(cpu_h, linewidth=2, color='#2563EB', alpha=0.8)
-    ax.axhline(y=60, color='#F59E0B', linestyle='--', linewidth=1, alpha=0.5, label='Warning (60%)')
-    ax.axhline(y=80, color='#DC2626', linestyle='--', linewidth=1, alpha=0.5, label='Critical (80%)')
-    ax.fill_between(range(len(cpu_h)), 0, cpu_h, alpha=0.1, color='#2563EB')
-    ax.set_ylim([0, 100])
-    ax.set_xlabel('Time (seconds)', fontsize=10)
-    ax.set_ylabel('CPU Usage (%)', fontsize=10)
-    ax.set_title('CPU Usage - Last 60 Seconds', fontsize=12, fontweight='bold')
-    ax.legend(loc='upper right', fontsize=9)
-    ax.grid(True, alpha=0.2)
-    plt.tight_layout()
-    cpu_b64 = fig_to_b64(fig)
+    # ── Build CPU sparkline image ─────────────────────────────────────────────
+    import matplotlib.patches as mpatches
+    fig2, ax2 = plt.subplots(figsize=(7, 3.2))
+    fig2.patch.set_facecolor("#ffffff")
+    ax2.set_facecolor("#ffffff")
 
-    # Latency scatter
-    import random
-    np.random.seed(42)
-    latency_samples = [st.session_state.latency + np.random.normal(0, 5) for _ in range(30)]
-    latency_samples = [max(25, min(95, l)) for l in latency_samples]
-    
-    fig, ax = plt.subplots(figsize=(10, 3))
-    colors = ['#EF4444' if x > 80 else '#FBBF24' if x > 60 else '#34D399' for x in latency_samples]
-    ax.scatter(range(len(latency_samples)), latency_samples, c=colors, alpha=0.6, s=30)
-    ax.axhline(y=60, color='#F59E0B', linestyle='--', linewidth=1, alpha=0.5)
-    ax.axhline(y=80, color='#DC2626', linestyle='--', linewidth=1, alpha=0.5)
-    ax.set_ylim([20, 100])
-    ax.set_xlabel('Sample #', fontsize=10)
-    ax.set_ylabel('Latency (ms)', fontsize=10)
-    ax.set_title('Inference Latency - Last 30 Samples', fontsize=12, fontweight='bold')
-    ax.grid(True, alpha=0.2)
-    plt.tight_layout()
-    lat_b64 = fig_to_b64(fig)
+    xs = list(range(len(cpu_h)))
+    ax2.plot(xs, cpu_h, color="#2563eb", linewidth=2, solid_capstyle="round", zorder=3)
+    ax2.fill_between(xs, cpu_h, alpha=0.10, color="#2563eb", zorder=2)
+    ax2.axhline(80, color="#ef4444", linewidth=1.0, linestyle="--", alpha=0.8, zorder=1)
+    ax2.axhline(60, color="#f59e0b", linewidth=1.0, linestyle="--", alpha=0.8, zorder=1)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<img src="data:image/png;base64,{cpu_b64}" style="width:100%;height:auto;">'
-            '</div>',
-            unsafe_allow_html=True
-        )
-    with c2:
-        st.markdown(
-            f'<div style="background:#FFFFFF;border-radius:12px;padding:24px;border:1px solid #E4E4E7;box-shadow:0 1px 3px rgba(0,0,0,0.06);">'
-            f'<img src="data:image/png;base64,{lat_b64}" style="width:100%;height:auto;">'
-            '</div>',
-            unsafe_allow_html=True
-        )
+    ax2.set_xlim(0, max(len(cpu_h) - 1, 1))
+    ax2.set_ylim(0, 105)
+    ax2.set_ylabel("%", color="#9ca3af", fontsize=9)
+    ax2.tick_params(colors="#9ca3af", labelsize=8, length=0)
+    ax2.yaxis.set_ticks([0, 20, 40, 60, 80, 100])
+    ax2.set_xticks([0, len(cpu_h) - 1])
+    ax2.set_xticklabels(["60 s ago", "now"], color="#9ca3af", fontsize=8.5)
+    for spine in ["top", "right"]:
+        ax2.spines[spine].set_visible(False)
+    for spine in ["bottom", "left"]:
+        ax2.spines[spine].set_color("#e5e7eb")
+    ax2.grid(axis="y", color="#f3f4f6", linewidth=0.8, zorder=0)
+    handles = [
+        mpatches.Patch(color="#f59e0b", alpha=0.9, label="60% warn"),
+        mpatches.Patch(color="#ef4444", alpha=0.9, label="80% crit"),
+    ]
+    ax2.legend(handles=handles, fontsize=8, facecolor="#ffffff",
+               edgecolor="#e5e7eb", labelcolor="#6b7280",
+               loc="upper right", framealpha=1)
+    fig2.tight_layout(pad=0.8)
+    cpu_b64 = fig_to_b64_local(fig2)
+    plt.close(fig2)
+
+    # ── Render two cards side by side ─────────────────────────────────────────
+    col1, col2 = st.columns(2, gap="large")
+
+    with col1:
+        st.markdown(f"""
+        <div style="background:#ffffff;border-radius:18px;padding:28px 28px 24px 28px;
+                    box-shadow:0 1px 8px rgba(0,0,0,0.08);border:1px solid #E4E4E7;">
+          <div style="display:flex;gap:14px;margin-bottom:20px;">
+            <div style="flex:1;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;">
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:4px;">Overall Accuracy</div>
+              <div style="font-family:monospace;font-size:2rem;font-weight:700;color:#16a34a;">{acc:.1f}<span style="font-size:0.95rem;">%</span></div>
+            </div>
+            <div style="flex:1;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;">
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:4px;">F1 Score</div>
+              <div style="font-family:monospace;font-size:2rem;font-weight:700;color:#2563eb;">{f1:.1f}<span style="font-size:0.95rem;">%</span></div>
+            </div>
+          </div>
+          <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px;">Confusion Matrix</div>
+          <img src="data:image/png;base64,{cm_b64}" style="width:100%;border-radius:10px;display:block;" />
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div style="background:#ffffff;border-radius:18px;padding:28px 28px 24px 28px;
+                    box-shadow:0 1px 8px rgba(0,0,0,0.08);border:1px solid #E4E4E7;">
+          <div style="display:flex;gap:14px;margin-bottom:20px;">
+            <div style="flex:1;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;">
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:4px;">Latency</div>
+              <div style="font-family:monospace;font-size:2rem;font-weight:700;color:{lat_color};">{lat}<span style="font-size:0.95rem;color:{lat_color};">ms</span></div>
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-top:5px;">Processing Time</div>
+            </div>
+            <div style="flex:1;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;">
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:4px;">CPU Usage</div>
+              <div style="font-family:monospace;font-size:2rem;font-weight:700;color:{cpu_color};">{cpu:.0f}<span style="font-size:0.95rem;color:{cpu_color};">%</span></div>
+              <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-top:5px;">Current Load</div>
+            </div>
+          </div>
+          <div style="font-size:0.67rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px;">CPU Usage Over Time</div>
+          <img src="data:image/png;base64,{cpu_b64}" style="width:100%;border-radius:10px;display:block;" />
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -912,10 +941,8 @@ elif page == "⚙️ Settings":
 
     current = load_config()
 
-    # Style st.container() blocks on this page as white cards
     st.markdown("""
         <style>
-        /* Target all direct stVerticalBlock children on settings page as white cards */
         section.main .block-container > div > div > div > div > [data-testid="stVerticalBlock"] > div > [data-testid="stVerticalBlock"] {
             background: #FFFFFF !important;
             border-radius: 12px !important;
@@ -927,31 +954,51 @@ elif page == "⚙️ Settings":
         </style>
     """, unsafe_allow_html=True)
 
-    # ── PERFORMANCE CARD ──────────────────────────────────────────────────────
     with st.container(border=False):
         st.markdown(
             '<div style="font-size:16px;font-weight:700;color:#111111;margin-bottom:2px;">Performance</div>'
             '<div style="font-size:13px;color:#6B7280;margin-bottom:12px;">Adjust based on the processing capacity of the robot\'s chip.</div>',
             unsafe_allow_html=True
         )
-        new_refresh  = st.slider("Dashboard refresh interval (seconds)", 1, 30, current["refresh_interval"],
-                                  help="Lower = more responsive but more CPU.")
-        new_log_freq = st.slider("Log every N frames", 1, 20, current["log_frequency"],
-                                  help="1 = every frame. Higher = less storage.")
+        new_refresh  = st.slider("Dashboard refresh interval (seconds)", 1, 30, current["refresh_interval"])
+        new_log_freq = st.slider("Log every N frames", 1, 20, current["log_frequency"])
 
-    # ── CONFIDENCE THRESHOLDS CARD ────────────────────────────────────────────
     with st.container(border=False):
         st.markdown(
             '<div style="font-size:16px;font-weight:700;color:#111111;margin-bottom:2px;">Confidence Thresholds</div>'
             '<div style="font-size:13px;color:#6B7280;margin-bottom:12px;">Define what counts as low, medium, and high confidence for your model.</div>',
             unsafe_allow_html=True
         )
-        new_conf_red   = st.slider("Red threshold — low confidence (%)", 10, 60, current["conf_red"])
-        new_conf_amber = st.slider("Amber threshold — degraded warning (%)", new_conf_red+5, 90,
-                                    max(current["conf_amber"], new_conf_red+5))
+        thresholds = st.slider(
+            "Confidence thresholds (%)",
+            min_value=0,
+            max_value=100,
+            value=(current["conf_red"], current["conf_amber"]),
+            help="Left handle = Red threshold. Right handle = Amber threshold.",
+        )
+        new_conf_red, new_conf_amber = thresholds
+
+        low_pct    = new_conf_red
+        medium_pct = new_conf_amber - new_conf_red
+        high_pct   = 100 - new_conf_amber
+        st.markdown(
+            f'''<div style="margin-top:8px;margin-bottom:16px;">
+                <div style="display:flex;border-radius:8px;overflow:hidden;height:28px;">
+                    <div style="flex:{low_pct};background:#FEE2E2;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#DC2626;">Low &lt;{new_conf_red}%</span>
+                    </div>
+                    <div style="flex:{medium_pct};background:#FEF3C7;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#D97706;">{new_conf_red}–{new_conf_amber}%</span>
+                    </div>
+                    <div style="flex:{high_pct};background:#DCFCE7;display:flex;align-items:center;justify-content:center;">
+                        <span style="font-size:11px;font-weight:600;color:#166534;">High ≥{new_conf_amber}%</span>
+                    </div>
+                </div>
+            </div>''',
+            unsafe_allow_html=True
+        )
         new_recovery   = st.slider("Recovery frames to close a low-confidence event", 1, 10, current["recovery_frames"])
 
-    # ── SAVE ──────────────────────────────────────────────────────────────────
     col_save, col_status = st.columns([1, 3])
     with col_save:
         if st.button("💾 Save Settings", type="primary", use_container_width=True):

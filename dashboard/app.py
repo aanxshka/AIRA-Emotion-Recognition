@@ -625,6 +625,7 @@ elif page == "📋 Event Timeline":
             if st.button("🗑 Clear Log", use_container_width=True):
                 if os.path.exists(LOG_PATH):
                     os.remove(LOG_PATH)
+                st.session_state.timeline_page = 0
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -658,8 +659,19 @@ elif page == "📋 Event Timeline":
         if filtered.empty:
             st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:32px;text-align:center;color:#6B7280;font-size:14px;">No events match the current filters.</div>', unsafe_allow_html=True)
         else:
+            # Pagination
+            PAGE_SIZE = 50
+            if 'timeline_page' not in st.session_state:
+                st.session_state.timeline_page = 0
+            total_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
+            # Clamp page to valid range
+            st.session_state.timeline_page = min(st.session_state.timeline_page, total_pages - 1)
+            page_start = st.session_state.timeline_page * PAGE_SIZE
+            page_end = min(page_start + PAGE_SIZE, len(filtered))
+            page_df = filtered.iloc[page_start:page_end]
+
             selected_row = None
-            for _, ev in filtered.head(100).iterrows():
+            for _, ev in page_df.iterrows():
                 ts   = pd.to_datetime(ev['timestamp']).strftime('%H:%M:%S')
                 conf = float(ev['confidence'])
                 c_col = conf_color(conf)
@@ -686,6 +698,25 @@ elif page == "📋 Event Timeline":
                     if st.button("Inspect", key=f"ins_{ev['timestamp']}"):
                         selected_row = ev
                 st.markdown('<hr style="border-color:#E5E7EB;margin:6px 0;">', unsafe_allow_html=True)
+
+            # Pagination controls
+            if total_pages > 1:
+                pg_left, pg_info, pg_right = st.columns([1, 3, 1])
+                with pg_left:
+                    if st.button("← Previous", disabled=st.session_state.timeline_page == 0, use_container_width=True):
+                        st.session_state.timeline_page -= 1
+                        st.rerun()
+                with pg_info:
+                    st.markdown(
+                        f'<div style="text-align:center;padding-top:6px;font-size:13px;color:#6B7280;">'
+                        f'Page {st.session_state.timeline_page + 1} of {total_pages} · '
+                        f'Showing {page_start + 1}–{page_end} of {len(filtered)} events'
+                        f'</div>', unsafe_allow_html=True
+                    )
+                with pg_right:
+                    if st.button("Next →", disabled=st.session_state.timeline_page >= total_pages - 1, use_container_width=True):
+                        st.session_state.timeline_page += 1
+                        st.rerun()
 
             if selected_row is not None:
                 ev     = selected_row

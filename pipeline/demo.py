@@ -657,8 +657,9 @@ class DeepFaceAudioFusionApp:
 
         face_rgb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
         preprocessed = self.face_extractor._preprocess(face_rgb)
-        embedding = self.face_extractor._embedding_model.predict(
-            preprocessed, verbose=0)[0]
+        # Direct eager forward pass — avoids Keras worker thread deadlock with Tkinter
+        embedding = self.face_extractor._embedding_model(
+            preprocessed, training=False).numpy()[0]
 
         top_emotion = max(emotion_probs, key=emotion_probs.get)
         return {

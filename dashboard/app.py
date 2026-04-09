@@ -12,7 +12,8 @@ import matplotlib
 matplotlib.use("Agg")
 from model_performance import (
     generate_confusion_matrix, accuracy_from_matrix, f1_from_matrix,
-    generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS
+    generate_cpu_history, generate_latency, fig_to_b64, EMOTIONS,
+    get_available_approaches, approach_display_name,
 )
 
 st.set_page_config(
@@ -67,44 +68,53 @@ def load_demo_frames():
 DEMO_FRAMES       = load_demo_frames()
 TOTAL_DEMO_FRAMES = len(DEMO_FRAMES)
 
+# ── LOG HELPERS ───────────────────────────────────────────────────────────────
+def band(c):
+    """Classify confidence into high/medium/low using current threshold settings."""
+    if c < CONF_RED:   return "low"
+    if c < CONF_AMBER: return "medium"
+    return "high"
+
 def load_log():
     if os.path.exists(LOG_PATH):
-        return pd.read_csv(LOG_PATH, parse_dates=['timestamp'])
+        df = pd.read_csv(LOG_PATH, parse_dates=['timestamp'])
+        # Compute confidence_band dynamically using current thresholds
+        if 'confidence' in df.columns:
+            df['confidence_band'] = df['confidence'].apply(band)
+        return df
     return pd.DataFrame(columns=[
         'timestamp','primary_emotion','confidence',
-        'happy','sad','fear','angry','disgust','neutral',
+        'happy','sad','fear','angry','disgust','neutral','surprise',
         'video_quality','audio_quality','confidence_band'
     ])
 
 def append_to_log(df_new):
     os.makedirs("data", exist_ok=True)
     existing = load_log()
-    def band(c):
-        if c < CONF_RED:   return "low"
-        if c < CONF_AMBER: return "medium"
-        return "high"
     rows = []
     for _, row in df_new.iloc[::LOG_FREQUENCY].iterrows():
         ts = str(row['timestamp'])
         if not existing.empty and ts in existing['timestamp'].astype(str).values:
             continue
-        conf = float(row['confidence'])
         rows.append({
             'timestamp':       row['timestamp'],
             'primary_emotion': row['primary_emotion'],
-            'confidence':      conf,
+            'confidence':      float(row['confidence']),
             'happy':           float(row['happy_score']),
             'sad':             float(row['sad_score']),
             'fear':            float(row['fear_score']),
             'angry':           float(row['angry_score']),
             'disgust':         float(row['disgust_score']),
             'neutral':         float(row['neutral_score']),
+            'surprise':        float(row.get('surprise_score', 0)),
             'video_quality':   float(row['video_signal_quality']),
             'audio_quality':   float(row['audio_signal_quality']),
-            'confidence_band': band(conf),
         })
     if rows:
         out = pd.concat([existing, pd.DataFrame(rows)], ignore_index=True)
+        # Drop confidence_band column if present (legacy) — it's computed at read time
+        if 'confidence_band' in out.columns:
+            out = out.drop(columns=['confidence_band'])
         out.to_csv(LOG_PATH, index=False)
 
 def get_demo_data():
@@ -246,8 +256,10 @@ if 'demo_frame' not in st.session_state:
     st.session_state.demo_frame = 0
 if 'demo_complete' not in st.session_state:
     st.session_state.demo_complete = False
+if 'selected_approach' not in st.session_state:
+    st.session_state.selected_approach = 'mlp_pred'
 if 'conf_matrix' not in st.session_state:
-    st.session_state.conf_matrix = generate_confusion_matrix()
+    st.session_state.conf_matrix = generate_confusion_matrix(st.session_state.selected_approach)
 if 'cpu_history' not in st.session_state:
     st.session_state.cpu_history = generate_cpu_history()
 if 'latency' not in st.session_state:
@@ -354,14 +366,15 @@ if page == "📊 Live Dashboard":
         emotion    = latest['primary_emotion']
         emotion_col_map = {
             'Happy': 'happy_score', 'Sad': 'sad_score', 'Fear': 'fear_score',
-            'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score'
+            'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score',
+            'Surprise': 'surprise_score'
         }
         confidence = float(latest[emotion_col_map.get(emotion, 'confidence')])
         v_active   = latest['video_feed_active']
         a_active   = latest['audio_feed_active']
 
-        emotions       = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score']
-        emotion_labels = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
+        emotions       = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score','surprise_score']
+        emotion_labels = ['Happy','Sad','Fear','Angry','Disgust','Neutral','Surprise']
         emotion_values = [float(latest[e]) for e in emotions]
 
         vq = float(latest['video_signal_quality'])
@@ -591,6 +604,7 @@ elif page == "📋 Event Timeline":
             if st.button("🗑 Clear Log", use_container_width=True):
                 if os.path.exists(LOG_PATH):
                     os.remove(LOG_PATH)
+                st.session_state.timeline_page = 0
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with filter_col5:
@@ -646,20 +660,69 @@ elif page == "📋 Event Timeline":
         if filtered.empty:
             st.markdown('<div style="background:#FFFFFF;border-radius:12px;padding:32px;text-align:center;color:#6B7280;font-size:14px;">No events match the current filters.</div>', unsafe_allow_html=True)
         else:
-            display_df = filtered[['timestamp','primary_emotion','confidence','confidence_band','video_quality','audio_quality']].copy()
-            display_df['timestamp'] = pd.to_datetime(display_df['timestamp']).dt.strftime('%H:%M:%S')
-            display_df.columns = ['Time','Emotion','Confidence (%)','Band','Video Quality (%)','Audio Quality (%)']
+            # Pagination
+            PAGE_SIZE = 50
+            if 'timeline_page' not in st.session_state:
+                st.session_state.timeline_page = 0
+            total_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
+            # Clamp page to valid range
+            st.session_state.timeline_page = min(st.session_state.timeline_page, total_pages - 1)
+            page_start = st.session_state.timeline_page * PAGE_SIZE
+            page_end = min(page_start + PAGE_SIZE, len(filtered))
+            page_df = filtered.iloc[page_start:page_end]
 
-            event = st.dataframe(
-                display_df,
-                use_container_width=True,
-                height=400,
-                hide_index=True,
-                on_select="rerun",
-                selection_mode="single-row",
-            )
+            selected_row = None
+            for _, ev in page_df.iterrows():
+                ts   = pd.to_datetime(ev['timestamp']).strftime('%H:%M:%S')
+                conf = float(ev['confidence'])
+                c_col = conf_color(conf)
 
-            selected_indices = event.selection.rows if event.selection else []
+                ca,cb,cc,cd,ce = st.columns([1.5,2,2,1.5,0.8])
+                with ca:
+                    st.markdown(f'<div style="font-size:13px;font-weight:600;color:#111111;padding-top:10px;">{ts}</div>', unsafe_allow_html=True)
+                with cb:
+                    st.markdown(f'<div style="font-size:14px;font-weight:700;color:#111111;padding-top:10px;">{ev["primary_emotion"]}</div>', unsafe_allow_html=True)
+                with cc:
+                    st.markdown(
+                        f'<div style="padding-top:6px;">'
+                        f'<div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Confidence</div>'
+                        f'<div style="display:flex;align-items:center;gap:8px;">'
+                        f'<div style="flex:1;background:#E5E7EB;border-radius:999px;height:6px;overflow:hidden;">'
+                        f'<div style="background:{c_col};height:6px;border-radius:999px;width:{min(conf,100)}%;"></div>'
+                        f'</div>'
+                        f'<div style="font-size:13px;font-weight:600;color:{c_col};min-width:40px;">{conf:.1f}%</div>'
+                        f'</div></div>', unsafe_allow_html=True
+                    )
+                with cd:
+                    st.markdown(f'<div style="padding-top:10px;">{band_badge(ev["confidence_band"])}</div>', unsafe_allow_html=True)
+                with ce:
+                    if st.button("Inspect", key=f"ins_{ev['timestamp']}"):
+                        selected_row = ev
+                st.markdown('<hr style="border-color:#E5E7EB;margin:6px 0;">', unsafe_allow_html=True)
+
+            # Pagination controls
+            if total_pages > 1:
+                pg_left, pg_info, pg_right = st.columns([1, 3, 1])
+                with pg_left:
+                    if st.button("← Previous", disabled=st.session_state.timeline_page == 0, use_container_width=True):
+                        st.session_state.timeline_page -= 1
+                        st.rerun()
+                with pg_info:
+                    st.markdown(
+                        f'<div style="text-align:center;padding-top:6px;font-size:13px;color:#6B7280;">'
+                        f'Page {st.session_state.timeline_page + 1} of {total_pages} · '
+                        f'Showing {page_start + 1}–{page_end} of {len(filtered)} events'
+                        f'</div>', unsafe_allow_html=True
+                    )
+                with pg_right:
+                    if st.button("Next →", disabled=st.session_state.timeline_page >= total_pages - 1, use_container_width=True):
+                        st.session_state.timeline_page += 1
+                        st.rerun()
+
+            if selected_row is not None:
+                ev     = selected_row
+                ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+                st.markdown(f'<div style="margin-top:24px;font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
 
             st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
             if selected_indices:
@@ -678,9 +741,9 @@ elif page == "📋 Event Timeline":
                         '</div>'
                     ), unsafe_allow_html=True)
                 with d2:
-                    el      = ['Happy','Sad','Fear','Angry','Disgust','Neutral']
-                    ev_vals = [ev['happy'],ev['sad'],ev['fear'],ev['angry'],ev['disgust'],ev['neutral']]
-                    fig_ev  = go.Figure(go.Bar(
+                    el = ['Happy','Sad','Fear','Angry','Disgust','Neutral','Surprise']
+                    ev_vals = [ev['happy'],ev['sad'],ev['fear'],ev['angry'],ev['disgust'],ev['neutral'],ev.get('surprise',0)]
+                    fig_ev = go.Figure(go.Bar(
                         x=el, y=ev_vals,
                         marker_color=['#111111' if e==ev['primary_emotion'] else '#E5E7EB' for e in el],
                         text=[f'{v:.1f}%' for v in ev_vals], textposition='outside'
@@ -708,23 +771,26 @@ elif page == "📋 Event Timeline":
 elif page == "🧠 Model Performance":
     st.markdown('<style>.block-container{background:#FFFFFF!important;border-radius:12px;padding:28px 32px;}</style>', unsafe_allow_html=True)
 
-    # ── Header + Refresh ──────────────────────────────────────────────────────
-    header_col, btn_col = st.columns([8, 1])
+    # Header + approach selector
+    header_col, selector_col = st.columns([6, 3])
     with header_col:
         st.markdown(
-            '<div style="margin-bottom:24px;">'
-            '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">AIRA · ML Analytics</div>'
-            '<div style="font-size:22px;font-weight:700;color:#18181B;">Model Performance on RAVDEES dataset</div>'
+            '<div style="margin-bottom:24px;">' +
+            '<div style="font-size:11px;font-weight:600;color:#A1A1AA;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">AIRA · ML Analytics</div>' +
+            '<div style="font-size:22px;font-weight:700;color:#18181B;">Model Performance</div>' +
+            '<div style="font-size:12px;color:#6B7280;margin-top:4px;">RAVDESS test set — 300 clips, 5 held-out actors (speaker-independent)</div>' +
             '</div>',
             unsafe_allow_html=True
         )
-    with btn_col:
-        if st.button("🔄 Refresh", use_container_width=True):
-            st.session_state.conf_matrix = generate_confusion_matrix()
-            st.session_state.latency = generate_latency()
-            cpu_last = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
-            new_cpu = cpu_last + np.random.uniform(-6, 6)
-            st.session_state.cpu_history = st.session_state.cpu_history + [max(5, min(90, round(new_cpu, 1)))]
+    with selector_col:
+        approaches = get_available_approaches()
+        display_names = [approach_display_name(a) for a in approaches]
+        current_idx = approaches.index(st.session_state.selected_approach) if st.session_state.selected_approach in approaches else len(approaches) - 1
+        selected_display = st.selectbox("Fusion Approach", display_names, index=current_idx)
+        selected_approach = approaches[display_names.index(selected_display)]
+        if selected_approach != st.session_state.selected_approach:
+            st.session_state.selected_approach = selected_approach
+            st.session_state.conf_matrix = generate_confusion_matrix(selected_approach)
             st.rerun()
 
     # ── Metrics ───────────────────────────────────────────────────────────────

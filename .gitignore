@@ -24,7 +24,14 @@ build/
 # Data
 confidence_log.csv
 event_log.csv
+emotion_live_data.csv
 *.log
+
+# Video/audio files (too large for git)
+*.mp4
+*.mov
+*.wav
+*.avi
 
 # OS
 .DS_Store

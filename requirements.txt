@@ -1,0 +1,24 @@
+# Dashboard (Streamlit)
+streamlit>=1.30.0
+pandas>=2.1.0
+numpy>=1.24.0
+plotly>=5.18.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Pipeline — Face model
+deepface>=0.0.93
+tf-keras>=2.16.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Pipeline — System monitoring
+psutil>=5.9.0
+
+# Pipeline — Audio model
+torch>=2.0.0
+torchaudio>=2.0.0
+funasr>=1.0.0
+huggingface-hub>=1.0.0
+sounddevice>=0.4.6
+soundfile>=0.12.0

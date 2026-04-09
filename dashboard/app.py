@@ -719,14 +719,9 @@ elif page == "📋 Event Timeline":
                         st.session_state.timeline_page += 1
                         st.rerun()
 
+            st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
             if selected_row is not None:
                 ev     = selected_row
-                ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
-                st.markdown(f'<div style="margin-top:24px;font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
-
-            st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
-            if selected_indices:
-                ev     = filtered.iloc[selected_indices[0]]
                 ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
                 st.markdown(f'<div style="font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
                 d1, d2 = st.columns(2)

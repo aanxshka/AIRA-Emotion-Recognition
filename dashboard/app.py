@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 import os
+import csv
 import json
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
@@ -149,13 +150,31 @@ def get_demo_data():
         st.session_state.demo_frame = next_frame
     return df
 
+def _tail_csv(path, n=50):
+    """Read the last n lines of a CSV file efficiently without loading the whole file."""
+    import io
+    with open(path, 'rb') as f:
+        # Read header
+        header = f.readline().decode('utf-8').strip()
+        # Seek to end, read backwards to find last n lines
+        f.seek(0, 2)
+        fsize = f.tell()
+        block_size = min(fsize, n * 512)  # Estimate ~512 bytes per row
+        f.seek(max(0, fsize - block_size))
+        tail_data = f.read().decode('utf-8')
+    lines = tail_data.strip().split('\n')
+    tail_lines = lines[-n:] if len(lines) > n else lines
+    csv_text = header + '\n' + '\n'.join(tail_lines)
+    return pd.read_csv(io.StringIO(csv_text))
+
+
 def get_live_data():
     """Read from emotion_live_data.csv for live pipeline mode.
 
-    Uses confidence-weighted selection: from the rows written in the last
-    REFRESH_INTERVAL seconds, picks the single row with the highest
-    confidence score. This mirrors the demo mode's logging strategy
-    and ensures the dashboard displays the most reliable prediction.
+    Only reads the last ~50 rows (tail) instead of the full CSV for
+    performance on long-running sessions. Uses confidence-weighted
+    selection: from rows in the last REFRESH_INTERVAL seconds, picks
+    the one with the highest confidence score.
 
     Returns:
         (best_row, is_stale) — best_row is a Series or None, is_stale is bool.
@@ -164,7 +183,7 @@ def get_live_data():
         return None, True
 
     try:
-        df = pd.read_csv(LIVE_DATA_PATH)
+        df = _tail_csv(LIVE_DATA_PATH, n=50)
     except Exception:
         return None, True
 
@@ -190,24 +209,61 @@ def get_live_data():
             best_idx = recent['confidence'].astype(float).idxmax()
             best_row = df.loc[best_idx]
         else:
-            best_row = latest  # No recent rows, use last available
+            best_row = latest
     except Exception:
         best_row = latest
 
     return best_row, is_stale
 
 
-def append_to_log_live(row):
+LOG_COLUMNS = [
+    'timestamp', 'primary_emotion', 'confidence',
+    'happy', 'sad', 'fear', 'angry', 'disgust', 'neutral', 'surprise',
+    'video_quality', 'audio_quality',
+]
+
+@st.cache_resource
+def _get_log_tracker():
+    """Persistent tracker for last log time — survives Streamlit reruns.
+    Initialises from the event log file to prevent duplicates on startup."""
+    import time as _time
+    import threading
+    last_time = 0.0
+    if os.path.exists(LOG_PATH) and os.path.getsize(LOG_PATH) > 0:
+        try:
+            with open(LOG_PATH, 'rb') as f:
+                f.seek(max(0, os.path.getsize(LOG_PATH) - 512))
+                last_line = f.read().decode('utf-8').strip().split('\n')[-1]
+            last_ts = pd.to_datetime(last_line.split(',')[0])
+            last_time = last_ts.timestamp()
+        except Exception:
+            pass
+    return {'last_log_time': last_time, 'lock': threading.Lock()}
+
+_LOG_TRACKER = _get_log_tracker()
+
+def append_to_log_live(row, min_interval=None):
     """Append a single live data row to the event log.
+
+    Append-only O(1) write with built-in dedup guard: checks the last
+    line of the file to ensure minimum interval between entries.
 
     Args:
         row: pandas Series from emotion_live_data.csv
+        min_interval: minimum seconds between log entries (default: REFRESH_INTERVAL)
     """
+    if min_interval is None:
+        min_interval = REFRESH_INTERVAL * LOG_FREQUENCY
     os.makedirs("data", exist_ok=True)
-    existing = load_log()
-    ts = str(row['timestamp'])
-    if not existing.empty and ts in existing['timestamp'].astype(str).values:
-        return  # Skip duplicate
+    file_exists = os.path.exists(LOG_PATH) and os.path.getsize(LOG_PATH) > 0
+
+    # Dedup guard: atomic check-and-claim using cached wall-clock tracker
+    import time
+    now = time.time()
+    with _LOG_TRACKER['lock']:
+        if now - _LOG_TRACKER['last_log_time'] < min_interval:
+            return  # Too soon since last log
+        _LOG_TRACKER['last_log_time'] = now  # Claim this slot immediately
 
     new_row = {
         'timestamp':       row['timestamp'],
@@ -223,10 +279,14 @@ def append_to_log_live(row):
         'video_quality':   float(row['video_signal_quality']),
         'audio_quality':   float(row['audio_signal_quality']),
     }
-    out = pd.concat([existing, pd.DataFrame([new_row])], ignore_index=True)
-    if 'confidence_band' in out.columns:
-        out = out.drop(columns=['confidence_band'])
-    out.to_csv(LOG_PATH, index=False)
+
+    with open(LOG_PATH, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=LOG_COLUMNS)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(new_row)
+
+    # (last_log_time already claimed atomically above)
 
 
 def conf_color(c):
@@ -509,11 +569,7 @@ if page == "📊 Dashboard":
                 return
             # Don't return on stale — show last known state, just skip logging
             if not is_stale:
-                min_log_interval = REFRESH_INTERVAL * LOG_FREQUENCY
-                now = datetime.now()
-                if (now - st.session_state._last_log_time).total_seconds() >= min_log_interval:
-                    append_to_log_live(latest)
-                    st.session_state._last_log_time = now
+                append_to_log_live(latest)
             df = None  # No history DataFrame in live mode
         else:
             # Demo mode: existing sequential playback
@@ -791,6 +847,7 @@ elif page == "📋 Timeline":
             if st.button("🗑 Clear Log", use_container_width=True):
                 if os.path.exists(LOG_PATH):
                     os.remove(LOG_PATH)
+                _LOG_TRACKER['last_log_time'] = 0.0  # Reset dedup tracker
                 st.session_state.timeline_page = 0
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)

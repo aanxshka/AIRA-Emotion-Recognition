@@ -66,12 +66,23 @@ CSV_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__
 CSV_FILENAME = 'emotion_live_data.csv'
 CSV_OUTPUT_PATH = os.path.join(CSV_OUTPUT_DIR, CSV_FILENAME)
 CSV_COLUMNS = [
-    'timestamp', 'primary_emotion', 'confidence',
-    'happy_score', 'sad_score', 'fear_score', 'angry_score',
-    'disgust_score', 'neutral_score', 'surprise_score',
-    'video_signal_quality', 'audio_signal_quality',
-    'video_feed_active', 'audio_feed_active',
-    'face_latency_ms', 'audio_latency_ms', 'cpu_usage',
+    'timestamp', 
+    'primary_emotion', 
+    'confidence',
+    'happy_score', 
+    'sad_score', 
+    'fear_score', 
+    'angry_score',
+    'disgust_score', 
+    'neutral_score',
+    'surprise_score',
+    'video_signal_quality',
+    'audio_signal_quality',
+    'video_feed_active',
+    'audio_feed_active',
+    'face_latency_ms', 
+    'audio_latency_ms', 
+    'cpu_usage',
 ]
 
 # MLP model path
@@ -90,22 +101,76 @@ CALIBRATION_STATES = [
 EMOTION_LABELS = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise', 'Neutral']
 
 EMOTION_COLORS = {
-    'Anger': '#E74C3C', 'Disgust': '#8E44AD', 'Fear': '#9B59B6',
-    'Happiness': '#F1C40F', 'Sadness': '#3498DB', 'Surprise': '#E67E22',
-    'Neutral': '#95A5A6',
+    'Anger': '#E05252', 'Disgust': '#9B6FD4', 'Fear': '#B48FE0',
+    'Happiness': '#F4B942', 'Sadness': '#5B9BD5', 'Surprise': '#F0924A',
+    'Neutral': '#8FA8BE',
 }
 
 COLORS = {
-    'bg_dark': '#2C3E50',
-    'bg_medium': '#34495E',
-    'text_white': '#FFFFFF',
-    'text_gray': '#BDC3C7',
-    'accent_green': '#2ECC71',
-    'accent_red': '#E74C3C',
-    'accent_blue': '#3498DB',
-    'accent_yellow': '#F1C40F',
-    'accent_purple': '#9B59B6',
+    'bg_dark': '#F0F4F8',
+    'bg_medium': '#DDE6F0',
+    'text_white': '#1E2A38',
+    'text_gray': '#5A7080',
+    'accent_green': '#2E9E6B',
+    'accent_red': '#D14F4F',
+    'accent_blue': '#3A7EC6',
+    'accent_yellow': '#C8902A',
+    'accent_purple': '#7B5EA7',
 }
+
+
+# ============================================================================
+# ============================================================================
+# Flat Button
+# ============================================================================
+
+class FlatButton(tk.Frame):
+    """Styled flat button using Frame + Label."""
+    _BG      = '#7DD4E0'
+    _HOVER   = '#5BBFCC'
+    _DISABLED= '#B8D8DE'
+
+    def __init__(self, parent, text, command):
+        super().__init__(parent, bg=self._BG)
+        self._cmd     = command
+        self._enabled = True
+        self.lbl = tk.Label(self, text=text, bg=self._BG, fg='#FFFFFF',
+                            font=('Helvetica', 10, 'bold'), padx=18, pady=7)
+        self.lbl.pack()
+        for w in (self, self.lbl):
+            w.bind('<Enter>',    self._enter)
+            w.bind('<Leave>',    self._leave)
+            w.bind('<Button-1>', self._click)
+
+    def _enter(self, _):
+        if self._enabled:
+            self.configure(bg=self._HOVER); self.lbl.configure(bg=self._HOVER)
+
+    def _leave(self, _):
+        if self._enabled:
+            self.configure(bg=self._BG); self.lbl.configure(bg=self._BG)
+
+    def _click(self, _):
+        if self._enabled:
+            self._cmd()
+
+    def config(self, **kwargs):
+        state = kwargs.pop('state', None)
+        if state == 'disabled':
+            self._enabled = False
+            self.configure(bg=self._DISABLED)
+            self.lbl.configure(bg=self._DISABLED, fg='#FFFFFF')
+        elif state == 'normal':
+            self._enabled = True
+            self.configure(bg=self._BG)
+            self.lbl.configure(bg=self._BG, fg='#FFFFFF')
+        if kwargs:
+            super().config(**kwargs)
+
+    def __getitem__(self, key):
+        if key == 'state':
+            return 'normal' if self._enabled else 'disabled'
+        return super().__getitem__(key)
 
 
 # ============================================================================
@@ -266,9 +331,24 @@ class DeepFaceAudioFusionApp:
         # Top bar
         top = tk.Frame(main, bg=COLORS['bg_dark'])
         top.pack(fill='x', pady=(0, 10))
+
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'LogoNoBG.png')
+        try:
+            logo_img = Image.open(logo_path).convert('RGBA')
+            target_h = 52
+            target_w = int(logo_img.width * target_h / logo_img.height)
+            logo_img = logo_img.resize((target_w, target_h), Image.LANCZOS)
+            bg = Image.new('RGBA', logo_img.size, COLORS['bg_dark'])
+            bg.paste(logo_img, mask=logo_img.split()[3])
+            self._logo_photo = ImageTk.PhotoImage(bg.convert('RGB'))
+            tk.Label(top, image=self._logo_photo, bg=COLORS['bg_dark']).pack(side='left')
+        except Exception as e:
+            print(f"[Logo] Could not load logo: {e}")
+
         tk.Label(top, text="AIRA Emotion Detection",
-                 font=('Helvetica', 18, 'bold'),
-                 bg=COLORS['bg_dark'], fg=COLORS['text_white']).pack(side='left')
+                 font=('Helvetica', 24, 'bold'),
+                 bg=COLORS['bg_dark'], fg='#4A5568',
+                 padx=12).pack(side='left')
         self.user_label = tk.Label(top, text="[No User]",
                                    font=('Helvetica', 12),
                                    bg=COLORS['bg_dark'], fg=COLORS['text_gray'])
@@ -278,35 +358,66 @@ class DeepFaceAudioFusionApp:
         content = tk.Frame(main, bg=COLORS['bg_dark'])
         content.pack(fill='both', expand=True)
 
-        # Left — camera + status
-        left = tk.Frame(content, bg=COLORS['bg_dark'], width=500)
-        left.pack(side='left', fill='both')
+        # Use grid so left and right share identical vertical bounds
+        content.grid_columnconfigure(0, minsize=500)
+        content.grid_columnconfigure(1, weight=1)
+        content.grid_rowconfigure(0, weight=1)
+
+        # Left panel
+        left = tk.Frame(content, bg=COLORS['bg_dark'])
+        left.grid(row=0, column=0, sticky='nsew')
+
+        # Bottom buttons
+        bottom_row = tk.Frame(left, bg=COLORS['bg_dark'])
+        bottom_row.pack(side='bottom', anchor='w', pady=(0, 10))
+
+        self.load_btn = FlatButton(bottom_row, text="Load Profile",
+                                   command=self.load_profile)
+        self.load_btn.pack(side='left', padx=(0, 8))
+
+        self.save_btn = FlatButton(bottom_row, text="Save Profile",
+                                   command=self.save_profile)
+        self.save_btn.pack(side='left')
+        self.save_btn.config(state='disabled')
 
         self.video_label = tk.Label(left, bg='#1a1a2e')
-        self.video_label.pack(pady=10)
+        self.video_label.pack(pady=(0, 0), anchor='w')
 
-        self.status_label = tk.Label(left, text="Initializing...",
+        self.metrics_label = tk.Label(left, text="Face: --ms | FPS: --",
+                                      font=('Helvetica', 10), bg=COLORS['bg_dark'],
+                                      fg=COLORS['text_gray'])
+        self.metrics_label.pack(anchor='w', pady=(2, 0))
+
+        # Calibrate button + status on same row, left-aligned under camera
+        cal_row = tk.Frame(left, bg=COLORS['bg_dark'])
+        cal_row.pack(anchor='w', pady=(6, 4))
+
+        self.cal_btn = FlatButton(cal_row, text="Calibrate Face",
+                                  command=self.start_calibration)
+        self.cal_btn.pack(side='left')
+
+        self.status_label = tk.Label(cal_row, text="Initializing...",
                                      font=('Helvetica', 11),
                                      bg=COLORS['bg_dark'], fg=COLORS['text_gray'])
-        self.status_label.pack(pady=5)
+        self.status_label.pack(side='left', padx=(12, 0))
 
         self.instruction_label = tk.Label(left, text="",
                                           font=('Helvetica', 12),
                                           bg=COLORS['bg_dark'],
                                           fg=COLORS['accent_yellow'],
-                                          wraplength=400, justify='center')
-        self.instruction_label.pack(pady=5)
+                                          wraplength=400, justify='left')
+        self.instruction_label.pack(anchor='w', pady=4)
 
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(left, length=300,
                                             mode='determinate',
                                             variable=self.progress_var)
-        self.progress_bar.pack(pady=5)
+        self.progress_bar.pack(anchor='w', pady=5)
         self.progress_bar.pack_forget()
 
-        # Right — three columns: Face | Audio | Fused
+        # Right panel
         right = tk.Frame(content, bg=COLORS['bg_medium'], padx=10, pady=10)
-        right.pack(side='right', fill='both', expand=True, padx=(10, 0))
+        right.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
 
         # Column headers
         cols = tk.Frame(right, bg=COLORS['bg_medium'])
@@ -363,157 +474,121 @@ class DeepFaceAudioFusionApp:
                                        fg=COLORS['text_gray'])
         self.fused_info_lbl.pack()
 
-        # Diagnostics section
-        diag = tk.Frame(right, bg=COLORS['bg_medium'])
-        diag.pack(fill='x', pady=(8, 5))
+        # Diagnostics + Similarity — left/right split
+        diag_row = tk.Frame(right, bg=COLORS['bg_medium'])
+        diag_row.pack(fill='x', pady=(8, 5))
 
-        tk.Label(diag, text="FUSION WEIGHTS",
+        # Left: fusion weights
+        diag_left = tk.Frame(diag_row, bg=COLORS['bg_medium'])
+        diag_left.pack(side='left', anchor='n', padx=(0, 20))
+        tk.Label(diag_left, text="FUSION WEIGHTS",
                  font=('Helvetica', 10, 'bold'),
-                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(pady=(0, 3))
-        self.weights_lbl = tk.Label(diag, text="Face: --% | Audio: --%",
+                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(anchor='w', pady=(0, 3))
+        self.weights_lbl = tk.Label(diag_left, text="Face: --% | Audio: --%",
                                     font=('Courier', 10),
-                                    bg=COLORS['bg_medium'],
-                                    fg=COLORS['text_gray'])
-        self.weights_lbl.pack()
-        self.adapter_lbl = tk.Label(diag, text="Adapter: --",
+                                    bg=COLORS['bg_medium'], fg=COLORS['text_gray'])
+        self.weights_lbl.pack(anchor='w')
+        self.adapter_lbl = tk.Label(diag_left, text="Adapter: --",
                                     font=('Courier', 9),
-                                    bg=COLORS['bg_medium'],
-                                    fg=COLORS['text_gray'])
-        self.adapter_lbl.pack()
+                                    bg=COLORS['bg_medium'], fg=COLORS['text_gray'])
+        self.adapter_lbl.pack(anchor='w', pady=(2, 0))
 
-        # Similarity bars
-        sim_frame = tk.Frame(right, bg=COLORS['bg_medium'])
-        sim_frame.pack(fill='x', pady=(5, 5))
-        tk.Label(sim_frame, text="BASELINE SIMILARITIES",
+        # Right: baseline similarities heading + bars
+        diag_right = tk.Frame(diag_row, bg=COLORS['bg_medium'])
+        diag_right.pack(side='left', anchor='n')
+        tk.Label(diag_right, text="BASELINE SIMILARITIES",
                  font=('Helvetica', 10, 'bold'),
-                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(pady=(0, 4))
-
+                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(anchor='w', pady=(0, 4))
         self.sim_bars = {}
-        for state, color in [('neutral', '#95A5A6'), ('happy', '#2ECC71')]:
-            row = tk.Frame(sim_frame, bg=COLORS['bg_medium'])
+        for state, color in [('neutral', '#8FA8BE'), ('happy', '#2E9E6B')]:
+            row = tk.Frame(diag_right, bg=COLORS['bg_medium'])
             row.pack(fill='x', pady=2)
             tk.Label(row, text=state.title(), font=('Helvetica', 9),
                      width=8, anchor='e',
-                     bg=COLORS['bg_medium'],
-                     fg=COLORS['text_gray']).pack(side='left')
+                     bg=COLORS['bg_medium'], fg=COLORS['text_gray']).pack(side='left')
             canvas = tk.Canvas(row, width=160, height=16,
-                               bg='#1e293b', highlightthickness=0)
+                               bg='#C8D8E8', highlightthickness=0)
             canvas.pack(side='left', padx=8)
             val_lbl = tk.Label(row, text="--",
                                font=('Helvetica', 9, 'bold'), width=5,
-                               bg=COLORS['bg_medium'],
-                               fg=COLORS['text_white'])
+                               bg=COLORS['bg_medium'], fg=COLORS['text_white'])
             val_lbl.pack(side='left')
             self.sim_bars[state] = {'canvas': canvas, 'label': val_lbl, 'color': color}
 
-        # Face probability bars — raw (before calibration adapter)
+        BAR_W, BAR_H = 400, 14
+
+        # Face RAW
         raw_prob_frame = tk.Frame(right, bg=COLORS['bg_medium'])
-        raw_prob_frame.pack(fill='x', pady=(5, 0))
+        raw_prob_frame.pack(fill='x', pady=(12, 0))
         tk.Label(raw_prob_frame, text="FACE RAW",
                  font=('Helvetica', 10, 'bold'),
-                 bg=COLORS['bg_medium'], fg=COLORS['accent_red']).pack(pady=(0, 2))
-
+                 bg=COLORS['bg_medium'], fg=COLORS['accent_red']).pack(anchor='w', pady=(0, 4))
         self.raw_prob_bars = {}
         for label in EMOTION_LABELS:
             row = tk.Frame(raw_prob_frame, bg=COLORS['bg_medium'])
-            row.pack(fill='x', pady=1)
-            tk.Label(row, text=label[:8], font=('Helvetica', 8),
+            row.pack(fill='x', pady=2)
+            tk.Label(row, text=label[:8], font=('Helvetica', 9),
                      width=10, anchor='e',
-                     bg=COLORS['bg_medium'],
-                     fg=COLORS['text_gray']).pack(side='left')
-            canvas = tk.Canvas(row, width=100, height=12,
-                               bg='#1e293b', highlightthickness=0)
-            canvas.pack(side='left', padx=(6, 2))
-            val_lbl = tk.Label(row, text="--", font=('Helvetica', 7),
-                               width=5, bg=COLORS['bg_medium'],
-                               fg=COLORS['text_gray'])
+                     bg=COLORS['bg_medium'], fg=COLORS['text_gray']).pack(side='left')
+            canvas = tk.Canvas(row, width=BAR_W, height=BAR_H,
+                               bg='#C8D8E8', highlightthickness=0)
+            canvas.pack(side='left', padx=(8, 4))
+            val_lbl = tk.Label(row, text="--", font=('Helvetica', 9),
+                               width=5, bg=COLORS['bg_medium'], fg=COLORS['text_gray'])
             val_lbl.pack(side='left')
             self.raw_prob_bars[label] = {'canvas': canvas, 'val': val_lbl,
                                          'color': EMOTION_COLORS[label]}
 
-        # Face probability bars — adapted (after calibration adapter, what fusion sees)
+        # Face Adapted
         prob_frame = tk.Frame(right, bg=COLORS['bg_medium'])
-        prob_frame.pack(fill='both', expand=True, pady=(5, 0))
+        prob_frame.pack(fill='x', pady=(12, 0))
         tk.Label(prob_frame, text="FACE ADAPTED (into fusion)",
                  font=('Helvetica', 10, 'bold'),
-                 bg=COLORS['bg_medium'], fg=COLORS['accent_green']).pack(pady=(0, 2))
-
+                 bg=COLORS['bg_medium'], fg=COLORS['accent_green']).pack(anchor='w', pady=(0, 4))
         self.prob_bars = {}
         for label in EMOTION_LABELS:
             row = tk.Frame(prob_frame, bg=COLORS['bg_medium'])
-            row.pack(fill='x', pady=1)
+            row.pack(fill='x', pady=2)
             tk.Label(row, text=label[:8], font=('Helvetica', 9),
                      width=10, anchor='e',
-                     bg=COLORS['bg_medium'],
-                     fg=COLORS['text_gray']).pack(side='left')
-            canvas = tk.Canvas(row, width=140, height=14,
-                               bg='#1e293b', highlightthickness=0)
-            canvas.pack(side='left', padx=(8, 2))
-            val_lbl = tk.Label(row, text="--", font=('Helvetica', 8),
-                               width=5, bg=COLORS['bg_medium'],
-                               fg=COLORS['text_gray'])
+                     bg=COLORS['bg_medium'], fg=COLORS['text_gray']).pack(side='left')
+            canvas = tk.Canvas(row, width=BAR_W, height=BAR_H,
+                               bg='#C8D8E8', highlightthickness=0)
+            canvas.pack(side='left', padx=(8, 4))
+            val_lbl = tk.Label(row, text="--", font=('Helvetica', 9),
+                               width=5, bg=COLORS['bg_medium'], fg=COLORS['text_gray'])
             val_lbl.pack(side='left')
             self.prob_bars[label] = {'canvas': canvas, 'val': val_lbl,
                                      'color': EMOTION_COLORS[label]}
 
-        # Audio probability bars
+        # Audio
         audio_prob_frame = tk.Frame(right, bg=COLORS['bg_medium'])
-        audio_prob_frame.pack(fill='both', expand=True, pady=(5, 0))
+        audio_prob_frame.pack(fill='x', pady=(12, 0))
         tk.Label(audio_prob_frame, text="AUDIO PROBABILITIES (raw)",
                  font=('Helvetica', 10, 'bold'),
-                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(pady=(0, 4))
-
+                 bg=COLORS['bg_medium'], fg=COLORS['text_white']).pack(anchor='w', pady=(0, 4))
         audio_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
         audio_colors = {
-            'Angry': '#E74C3C', 'Disgust': '#8E44AD', 'Fear': '#9B59B6',
-            'Happy': '#F1C40F', 'Neutral': '#95A5A6', 'Sad': '#3498DB',
-            'Surprise': '#E67E22',
+            'Angry': '#E05252', 'Disgust': '#9B6FD4', 'Fear': '#B48FE0',
+            'Happy': '#F4B942', 'Neutral': '#8FA8BE', 'Sad': '#5B9BD5',
+            'Surprise': '#F0924A',
         }
         self.audio_prob_bars = {}
         for label in audio_labels:
             row = tk.Frame(audio_prob_frame, bg=COLORS['bg_medium'])
-            row.pack(fill='x', pady=1)
+            row.pack(fill='x', pady=2)
             tk.Label(row, text=label, font=('Helvetica', 9),
                      width=10, anchor='e',
-                     bg=COLORS['bg_medium'],
-                     fg=COLORS['text_gray']).pack(side='left')
-            canvas = tk.Canvas(row, width=140, height=14,
-                               bg='#1e293b', highlightthickness=0)
-            canvas.pack(side='left', padx=(8, 2))
-            val_lbl = tk.Label(row, text="--", font=('Helvetica', 8),
-                               width=5, bg=COLORS['bg_medium'],
-                               fg=COLORS['text_gray'])
+                     bg=COLORS['bg_medium'], fg=COLORS['text_gray']).pack(side='left')
+            canvas = tk.Canvas(row, width=BAR_W, height=BAR_H,
+                               bg='#C8D8E8', highlightthickness=0)
+            canvas.pack(side='left', padx=(8, 4))
+            val_lbl = tk.Label(row, text="--", font=('Helvetica', 9),
+                               width=5, bg=COLORS['bg_medium'], fg=COLORS['text_gray'])
             val_lbl.pack(side='left')
             self.audio_prob_bars[label] = {'canvas': canvas, 'val': val_lbl,
                                            'color': audio_colors[label]}
 
-        # Bottom bar
-        bottom = tk.Frame(main, bg=COLORS['bg_dark'])
-        bottom.pack(fill='x', pady=(10, 0))
-
-        self.cal_btn = tk.Button(
-            bottom, text="Calibrate Face", command=self.start_calibration,
-            font=('Helvetica', 10), bg=COLORS['accent_blue'],
-            fg='white', padx=15, pady=5)
-        self.cal_btn.pack(side='left', padx=5)
-
-        self.load_btn = tk.Button(
-            bottom, text="Load Profile", command=self.load_profile,
-            font=('Helvetica', 10), bg=COLORS['bg_medium'],
-            fg='white', padx=15, pady=5)
-        self.load_btn.pack(side='left', padx=5)
-
-        self.save_btn = tk.Button(
-            bottom, text="Save Profile", command=self.save_profile,
-            font=('Helvetica', 10), bg=COLORS['bg_medium'],
-            fg='white', padx=15, pady=5, state='disabled')
-        self.save_btn.pack(side='left', padx=5)
-
-        self.metrics_label = tk.Label(
-            bottom, text="Face: --ms | FPS: --",
-            font=('Helvetica', 10), bg=COLORS['bg_dark'],
-            fg=COLORS['text_gray'])
-        self.metrics_label.pack(side='right')
 
     # ========================================================================
     # Calibration (face only)
@@ -832,7 +907,7 @@ class DeepFaceAudioFusionApp:
                     bars['canvas'].delete('all')
                     bw = max(0, min(160, int(160 * sim)))
                     if bw > 0:
-                        fill = bars['color'] if state == closest else '#475569'
+                        fill = bars['color'] if state == closest else '#A8BFCE'
                         bars['canvas'].create_rectangle(
                             0, 0, bw, 16, fill=fill, outline='')
                     bars['label'].config(text=f"{sim:.3f}")
@@ -849,10 +924,10 @@ class DeepFaceAudioFusionApp:
             for label, bars in self.raw_prob_bars.items():
                 p = rprobs.get(label, 0.0)
                 bars['canvas'].delete('all')
-                bw = max(0, min(100, int(100 * p)))
+                bw = max(0, min(400, int(400 * p)))
                 if bw > 0:
                     bars['canvas'].create_rectangle(
-                        0, 0, bw, 12, fill=bars['color'], outline='')
+                        0, 0, bw, 14, fill=bars['color'], outline='')
                 bars['val'].config(text=f"{p:.0%}")
         else:
             for bars in self.raw_prob_bars.values():
@@ -865,7 +940,7 @@ class DeepFaceAudioFusionApp:
             for label, bars in self.prob_bars.items():
                 p = probs.get(label, 0.0)
                 bars['canvas'].delete('all')
-                bw = max(0, min(140, int(140 * p)))
+                bw = max(0, min(400, int(400 * p)))
                 if bw > 0:
                     bars['canvas'].create_rectangle(
                         0, 0, bw, 14, fill=bars['color'], outline='')
@@ -881,7 +956,7 @@ class DeepFaceAudioFusionApp:
             for label, bars in self.audio_prob_bars.items():
                 p = aprobs.get(label, 0.0)
                 bars['canvas'].delete('all')
-                bw = max(0, min(140, int(140 * p)))
+                bw = max(0, min(400, int(400 * p)))
                 if bw > 0:
                     bars['canvas'].create_rectangle(
                         0, 0, bw, 14, fill=bars['color'], outline='')
@@ -1135,7 +1210,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='AIRA Emotion Detection Demo')
     parser.add_argument('--camera', type=int, default=0,
-                        help='Camera index (0=default, 1=MacBook webcam)')
+                        help='Camera device index')
     args = parser.parse_args()
 
     print(f"Using camera index: {args.camera}")

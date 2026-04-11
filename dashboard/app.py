@@ -62,6 +62,7 @@ DEMO_NOTES = {
     "📵 Feed Lost":            "The video feed has been lost. Without visual input the model's confidence drops significantly. The feed indicator turns red until the connection is restored.",
 }
 
+@st.cache_data
 def load_demo_frames():
     df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
     return df.to_dict('records')
@@ -93,7 +94,15 @@ def append_to_log(df_new):
     os.makedirs("data", exist_ok=True)
     existing = load_log()
     rows = []
-    for _, row in df_new.iloc[::LOG_FREQUENCY].iterrows():
+    # Confidence-weighted selection: from each window of LOG_FREQUENCY frames,
+    # log the single frame with the highest confidence score
+    df_reset = df_new.reset_index(drop=True)
+    selected_rows = []
+    for window_start in range(0, len(df_reset), LOG_FREQUENCY):
+        window = df_reset.iloc[window_start:window_start + LOG_FREQUENCY]
+        best_idx = window['confidence'].idxmax()
+        selected_rows.append(df_reset.loc[best_idx])
+    for row in selected_rows:
         ts = str(row['timestamp'])
         if not existing.empty and ts in existing['timestamp'].astype(str).values:
             continue

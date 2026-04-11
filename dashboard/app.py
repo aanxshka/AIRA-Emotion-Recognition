@@ -150,10 +150,15 @@ def get_demo_data():
     return df
 
 def get_live_data():
-    """Read latest row from emotion_live_data.csv for live pipeline mode.
+    """Read from emotion_live_data.csv for live pipeline mode.
+
+    Uses confidence-weighted selection: from the rows written in the last
+    REFRESH_INTERVAL seconds, picks the single row with the highest
+    confidence score. This mirrors the demo mode's logging strategy
+    and ensures the dashboard displays the most reliable prediction.
 
     Returns:
-        (latest_row, is_stale) — latest_row is a Series or None, is_stale is bool.
+        (best_row, is_stale) — best_row is a Series or None, is_stale is bool.
     """
     if not os.path.exists(LIVE_DATA_PATH):
         return None, True
@@ -166,17 +171,30 @@ def get_live_data():
     if df.empty:
         return None, True
 
+    # Staleness check using the most recent row
     latest = df.iloc[-1]
-
-    # Staleness check: if last row is older than 2x refresh interval, pipeline stopped
     try:
-        ts = pd.to_datetime(latest['timestamp'])
-        age_seconds = (datetime.now() - ts).total_seconds()
+        latest_ts = pd.to_datetime(latest['timestamp'])
+        age_seconds = (datetime.now() - latest_ts).total_seconds()
         is_stale = age_seconds > (REFRESH_INTERVAL * 2)
     except Exception:
         is_stale = True
 
-    return latest, is_stale
+    # Confidence-weighted selection: from rows in the last REFRESH_INTERVAL
+    # seconds, pick the one with the highest confidence
+    try:
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        cutoff = datetime.now() - timedelta(seconds=REFRESH_INTERVAL)
+        recent = df[df['timestamp'] >= cutoff]
+        if not recent.empty:
+            best_idx = recent['confidence'].astype(float).idxmax()
+            best_row = df.loc[best_idx]
+        else:
+            best_row = latest  # No recent rows, use last available
+    except Exception:
+        best_row = latest
+
+    return best_row, is_stale
 
 
 def append_to_log_live(row):

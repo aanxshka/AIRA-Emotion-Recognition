@@ -347,7 +347,7 @@ class DeepFaceAudioFusionApp:
 
         tk.Label(top, text="AIRA Emotion Detection",
                  font=('Helvetica', 24, 'bold'),
-                 bg=COLORS['bg_dark'], fg='#4A5568',
+                 bg=COLORS['bg_dark'], fg='#2E4057',
                  padx=12).pack(side='left')
         self.user_label = tk.Label(top, text="[No User]",
                                    font=('Helvetica', 12),

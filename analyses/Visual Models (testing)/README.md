@@ -22,10 +22,27 @@ The goal of this module was to:
 - DeepFace
 - RetinaFace + DeepFace
 - FER (Facial Expression Recognition)
-- HSEmotion
+- HSEmotion(enet_b2, enet_b0_vgaf, enet_b0_va_mtl)
 - dlib (geometric-based variants)
 
+---
 
+## Folder Structure
+
+### Individual model scripts (Anushka)
+Individual evaluator scripts per model, each self-contained and independently runnable.
+
+### hs_fer_mediapipe_evaluation (Sidney)
+Extended evaluation of HSEmotion, FERPlus and MediaPipe variants via a full Streamlit app, including:
+
+- Multi-model comparison dashboard
+- AI-generated vs real elderly data suitability analysis
+- Baseline vs improved model comparison (confidence-weighted frame aggregation)
+- Statistical analysis: McNemar's test, Cohen's Kappa, AUC per class
+- Tested HSEmotion (3 variants) + FERPlus + MediaPipe with baseline vs improved comparisons
+
+### results
+Outputs from different model runs including evaluation metrics, confusion matrices, and model-specific outputs.
 
 ---
 

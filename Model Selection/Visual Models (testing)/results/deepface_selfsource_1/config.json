@@ -1,0 +1,32 @@
+{
+  "model": "DeepFace",
+  "enforce_detection": false,
+  "started_at": "2026-03-08T20:05:53",
+  "ended_at": "2026-03-08T20:16:46",
+  "videos_processed": [
+    "/Users/anushka/Downloads/aai_happy.MOV",
+    "/Users/anushka/Downloads/aai_neutral.MOV",
+    "/Users/anushka/Downloads/aai_upset.MOV",
+    "/Users/anushka/Downloads/anders_happy.MOV",
+    "/Users/anushka/Downloads/anders_neutral.MOV",
+    "/Users/anushka/Downloads/anders_upset.MOV",
+    "/Users/anushka/Downloads/anushka_happy.MOV",
+    "/Users/anushka/Downloads/anushka_neutral.MOV",
+    "/Users/anushka/Downloads/anushka_upset.MOV",
+    "/Users/anushka/Downloads/grandma_happy.mp4",
+    "/Users/anushka/Downloads/grandma_neutral.mp4",
+    "/Users/anushka/Downloads/grandma_upset.mp4",
+    "/Users/anushka/Downloads/shirley_happy.MOV",
+    "/Users/anushka/Downloads/shirley_neutral.MOV",
+    "/Users/anushka/Downloads/shirley_upset.MOV",
+    "/Users/anushka/Downloads/sidney_happy.MOV",
+    "/Users/anushka/Downloads/sidney_neutral.MOV",
+    "/Users/anushka/Downloads/sidney_upset.MOV",
+    "/Users/anushka/Downloads/sourick_happy.MOV",
+    "/Users/anushka/Downloads/sourick_neutral.MOV",
+    "/Users/anushka/Downloads/sourick_upset.MOV",
+    "/Users/anushka/Downloads/yq_happy.MOV",
+    "/Users/anushka/Downloads/yq_neutral.MOV",
+    "/Users/anushka/Downloads/yq_upset.MOV"
+  ]
+}

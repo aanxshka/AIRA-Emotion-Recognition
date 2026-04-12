@@ -1,0 +1,5 @@
+class,precision,recall,f1,support
+positive,0.7778,0.5833,0.6667,12
+neutral,0.6667,0.3333,0.4444,12
+negative,0.4762,0.8333,0.6061,12
+macro_avg,0.6402,0.5833,0.5724,36

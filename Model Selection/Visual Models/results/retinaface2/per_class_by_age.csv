@@ -1,0 +1,7 @@
+class,age_group,precision,recall,f1,support
+positive,young,1.0,0.8333,0.9091,6
+neutral,young,0.6667,0.3333,0.4444,6
+negative,young,0.5,0.8333,0.625,6
+positive,old,0.75,0.5,0.6,6
+neutral,old,0.6667,0.3333,0.4444,6
+negative,old,0.4545,0.8333,0.5882,6

@@ -1,0 +1,20 @@
+metric,value,what_it_means
+model,Py-Feat,Py-Feat pipeline: face detection → landmarks → action units → emotion classification
+videos_total,36,Total number of videos processed in this run
+accuracy_pct,58.33,% of videos where predicted valence matched ground truth. Baseline (always neutral) = 33.3%.
+macro_f1,0.5723,Average F1 across all 3 classes equally. Balances precision and recall.
+cohen_kappa,0.375,"Agreement beyond chance. 0=random, 1=perfect. Accounts for prediction imbalance."
+macro_precision,0.5741,"Average precision across classes. Of all videos predicted as class X, how many actually were X?"
+macro_recall,0.5833,"Average recall across classes. Of all actual class X videos, how many did the model catch?"
+f1_positive,0.7407,F1 for POSITIVE class. Low = model struggles to detect happy faces.
+f1_neutral,0.4762,F1 for NEUTRAL class. Low = model confuses resting faces with emotions.
+f1_negative,0.5,F1 for NEGATIVE class. Low = model misses or over-predicts upset faces.
+auc_positive,0.9132,"AUC for positive vs rest using score_positive. 0.5=random, 1.0=perfect."
+auc_neutral,0.7222,AUC for neutral vs rest using score_neutral.
+auc_negative,0.7812,AUC for negative vs rest using score_negative.
+macro_auc,0.8055,"Average AUC across all 3 classes. Above 0.7=acceptable, above 0.8=good."
+latency_avg_ms,41042.38,Average processing time per video in ms. Relevant for real-time robot deployment.
+latency_p50_ms,35806.15,Median latency — half of videos processed faster than this.
+latency_p95_ms,90299.07,95th percentile latency — worst-case speed for 95% of videos.
+started_at,2026-03-10T14:14:28,Session start time
+ended_at,2026-03-10T14:39:35,Session end time

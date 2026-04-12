@@ -1,0 +1,4 @@
+actual \ predicted,positive,neutral,negative
+positive,8,0,4
+neutral,1,4,7
+negative,0,2,10

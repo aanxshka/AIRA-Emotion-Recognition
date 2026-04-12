@@ -1,0 +1,20 @@
+metric,value,what_it_means
+model,DeepFace,The model being evaluated
+videos_total,36,Total number of videos processed in this run
+accuracy_pct,66.67,% of videos where the predicted valence matched ground truth. Simple hit rate. Baseline (always neutral) = 33.3%.
+macro_f1,0.6712,Average F1 across all 3 classes equally. Balances precision and recall. More informative than accuracy when classes are equal-sized.
+cohen_kappa,0.5,"Agreement beyond chance. 0 = no better than random, 1 = perfect. Accounts for class imbalance in predictions."
+macro_precision,0.6959,"Average precision across classes. Of all videos the model predicted as class X, how many actually were X?"
+macro_recall,0.6667,"Average recall across classes. Of all actual class X videos, how many did the model correctly detect?"
+f1_positive,0.7619,F1 score specifically for the POSITIVE class. Low = model struggles to detect happy/positive faces.
+f1_neutral,0.6087,F1 score specifically for the NEUTRAL class. Low = model confuses resting faces with emotions.
+f1_negative,0.6429,F1 score specifically for the NEGATIVE class. Low = model misses or over-predicts upset/sad faces.
+auc_positive,0.8785,"AUC for positive vs rest. How well the model ranks actual positive videos higher than non-positive ones using score_positive. 0.5 = random, 1.0 = perfect."
+auc_neutral,0.7778,AUC for neutral vs rest. How well the model ranks actual neutral videos higher using score_neutral.
+auc_negative,0.7986,AUC for negative vs rest. How well the model ranks actual negative videos higher using score_negative.
+macro_auc,0.8183,"Average AUC across all 3 classes. Single headline confidence-ranking score. Above 0.7 = acceptable, above 0.8 = good."
+latency_avg_ms,6822.25,Average processing time per video in milliseconds. Relevant for real-time robot deployment.
+latency_p50_ms,4214.8,Median latency — half of videos processed faster than this.
+latency_p95_ms,28561.18,95th percentile latency — worst-case speed for 95% of videos.
+started_at,2026-03-10T10:19:47,Session start time
+ended_at,2026-03-10T10:25:01,Session end time

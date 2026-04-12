@@ -1,0 +1,20 @@
+metric,value,what_it_means
+model,RetinaFace+DeepFace,"RetinaFace for detection/cropping, DeepFace CNN for emotion classification"
+videos_total,36,Total number of videos processed in this run
+accuracy_pct,61.11,% of videos where predicted valence matched ground truth. Baseline (always neutral) = 33.3%.
+macro_f1,0.6041,Average F1 across all 3 classes equally. Balances precision and recall.
+cohen_kappa,0.4167,"Agreement beyond chance. 0=random, 1=perfect. Accounts for prediction imbalance."
+macro_precision,0.6773,"Average precision across classes. Of all videos predicted as class X, how many actually were X?"
+macro_recall,0.6111,"Average recall across classes. Of all actual class X videos, how many did the model catch?"
+f1_positive,0.7619,F1 for POSITIVE class. Low = model struggles to detect happy faces.
+f1_neutral,0.4444,F1 for NEUTRAL class. Low = model confuses resting faces with emotions.
+f1_negative,0.6061,F1 for NEGATIVE class. Low = model misses or over-predicts upset faces.
+auc_positive,0.8993,"AUC for positive vs rest. How well model ranks actual positive videos higher using score_positive. 0.5=random, 1.0=perfect."
+auc_neutral,0.7083,AUC for neutral vs rest using score_neutral.
+auc_negative,0.7882,AUC for negative vs rest using score_negative.
+macro_auc,0.7986,"Average AUC across all 3 classes. Single headline confidence-ranking score. Above 0.7=acceptable, above 0.8=good."
+latency_avg_ms,58366.25,Average processing time per video in ms. RetinaFace adds overhead vs plain DeepFace — compare this directly.
+latency_p50_ms,60947.43,Median latency — half of videos processed faster than this.
+latency_p95_ms,66736.59,95th percentile latency — worst-case speed for 95% of videos.
+started_at,2026-03-10T15:04:20,Session start time
+ended_at,2026-03-10T15:54:37,Session end time

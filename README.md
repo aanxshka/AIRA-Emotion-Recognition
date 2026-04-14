@@ -2,7 +2,7 @@
 
 **BT4103 Business Analytics Capstone Project — Team 05**
 
-A personalised multimodal emotion detection system for [Prescience PresbyRobotics'](https://www.presciencerobotics.com/) AIRA companion robot. Combines facial analysis (DeepFace) and speech recognition (Emotion2Vec Large) through late fusion, with per-user calibration to adapt to individual expressions.
+A personalised multimodal emotion detection system for Prescience PresbyRobotics' AIRA companion robot. Combines facial analysis (DeepFace) and speech recognition (Emotion2Vec Large) through late fusion, with per-user calibration to adapt to individual expressions.
 
 ## Key Results
 

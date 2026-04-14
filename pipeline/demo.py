@@ -60,6 +60,16 @@ CHUNK_SAMPLES = int(SAMPLE_RATE * CHUNK_DURATION)
 FRAMES_TO_AVERAGE = 25
 AUDIO_STALE_THRESHOLD = 4.0  # Reduced with shorter chunks (was 5s with 3s chunks)
 
+# Adaptive calibration threshold fractions (applied to inter-baseline cosine similarity)
+SIMILARITY_FRACTION = 0.85  # Fraction of inter-baseline sim for happy/calm match
+NEUTRAL_FRACTION = 0.87  # Slightly stricter for neutral (resting state)
+DEVIATION_FRACTION = 0.78  # Below this, user is in uncalibrated territory
+THRESHOLD_MIN = 0.65  # Lower bound to prevent trivially permissive thresholds
+THRESHOLD_MAX = 0.95  # Upper bound to keep thresholds achievable during live use
+DEVIATION_FLOOR_MIN = 0.50  # Lower bound for deviation floor
+DEVIATION_FLOOR_MAX = 0.90  # Upper bound for deviation floor
+RAW_OVERRIDE_CONFIDENCE = 0.60  # Trust raw model for non-calibrated emotions above this
+
 # CSV logging — outputs to dashboard data folder for Streamlit consumption
 CSV_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                               'dashboard', 'data')
@@ -681,10 +691,10 @@ class DeepFaceAudioFusionApp:
         happy_emb = self._temp_baseline.get_embedding('happy')
         sim_nh = cosine_similarity(neutral_emb, happy_emb)
         thresholds = {
-            'similarity_threshold': max(0.65, min(0.95, sim_nh * 0.85)),
-            'neutral_threshold': max(0.65, min(0.95, sim_nh * 0.87)),
-            'deviation_floor': max(0.50, min(0.90, sim_nh * 0.78)),
-            'raw_override_confidence': 0.60,
+            'similarity_threshold': max(THRESHOLD_MIN, min(THRESHOLD_MAX, sim_nh * SIMILARITY_FRACTION)),
+            'neutral_threshold': max(THRESHOLD_MIN, min(THRESHOLD_MAX, sim_nh * NEUTRAL_FRACTION)),
+            'deviation_floor': max(DEVIATION_FLOOR_MIN, min(DEVIATION_FLOOR_MAX, sim_nh * DEVIATION_FRACTION)),
+            'raw_override_confidence': RAW_OVERRIDE_CONFIDENCE,
         }
         self.cal_detector.set_adaptive_thresholds(thresholds)
         print(f"[Calibration] sim_neutral_happy={sim_nh:.3f}")

@@ -23,9 +23,9 @@ st.set_page_config(
     layout="wide"
 )
 
-CONFIG_PATH    = "data/settings.json"
-LOG_PATH       = "data/event_log.csv"
-DATA_PATH      = "data/emotion_data.csv"
+CONFIG_PATH = "data/settings.json"
+LOG_PATH = "data/event_log.csv"
+DATA_PATH = "data/emotion_data.csv"
 LIVE_DATA_PATH = "data/emotion_live_data.csv"
 
 DEFAULT_CONFIG = {
@@ -48,12 +48,12 @@ def save_config(cfg):
     os.makedirs("data", exist_ok=True)
     json.dump(cfg, open(CONFIG_PATH, "w"), indent=2)
 
-cfg              = load_config()
+cfg = load_config()
 REFRESH_INTERVAL = cfg["refresh_interval"]
-LOG_FREQUENCY    = cfg["log_frequency"]
-CONF_RED         = cfg["conf_red"]
-CONF_AMBER       = cfg["conf_amber"]
-RECOVERY_FRAMES  = cfg["recovery_frames"]
+LOG_FREQUENCY = cfg["log_frequency"]
+CONF_RED = cfg["conf_red"]
+CONF_AMBER = cfg["conf_amber"]
+RECOVERY_FRAMES = cfg["recovery_frames"]
 
 DEMO_NOTES = {
     "😊 Normal Operation":    "The model is detecting a stable Happy emotion with high confidence. Both video and audio feeds are active and signal quality is strong.",
@@ -68,7 +68,7 @@ def load_demo_frames():
     df = pd.read_csv(DATA_PATH, parse_dates=['timestamp'])
     return df.to_dict('records')
 
-DEMO_FRAMES       = load_demo_frames()
+DEMO_FRAMES = load_demo_frames()
 TOTAL_DEMO_FRAMES = len(DEMO_FRAMES)
 
 # ── LOG HELPERS ───────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ def get_demo_data():
         st.session_state.demo_frame = 0
     current_idx = st.session_state.demo_frame
     history_len = 24
-    indices     = [(current_idx - history_len + 1 + i) % TOTAL_DEMO_FRAMES
+    indices = [(current_idx - history_len + 1 + i) % TOTAL_DEMO_FRAMES
                    for i in range(history_len)]
     now  = datetime.now()
     rows = []
@@ -509,10 +509,10 @@ if page == "📊 Dashboard":
 
             with btn_col:
                 is_live = st.session_state.live_mode
-                label   = "⏸ Pause" if is_live else "▶ Play"
+                label = "⏸ Pause" if is_live else "▶ Play"
                 if st.button(label, use_container_width=True):
                     if not is_live:
-                        st.session_state.demo_frame    = 0
+                        st.session_state.demo_frame = 0
                         st.session_state.session_start = datetime.now()
                         st.session_state.demo_complete = False
                     st.session_state.live_mode = not is_live
@@ -520,10 +520,10 @@ if page == "📊 Dashboard":
 
             with restart_col:
                 if st.button("↺ Reset", use_container_width=True):
-                    st.session_state.demo_frame    = 0
+                    st.session_state.demo_frame = 0
                     st.session_state.session_start = datetime.now()
                     st.session_state.demo_complete = False
-                    st.session_state.live_mode     = True
+                    st.session_state.live_mode = True
                     st.rerun()
 
             with skip_col:
@@ -538,7 +538,7 @@ if page == "📊 Dashboard":
                     if next_frame >= TOTAL_DEMO_FRAMES:
                         st.session_state.demo_complete = True
                     else:
-                        st.session_state.demo_frame    = next_frame
+                        st.session_state.demo_frame = next_frame
                         st.session_state.demo_complete = False
                     st.session_state.live_mode = True
                     st.rerun()
@@ -584,17 +584,17 @@ if page == "📊 Dashboard":
             latest = df.iloc[-1]
             is_stale = False
 
-        emotion    = latest['primary_emotion']
+        emotion = latest['primary_emotion']
         emotion_col_map = {
             'Happy': 'happy_score', 'Sad': 'sad_score', 'Fear': 'fear_score',
             'Angry': 'angry_score', 'Disgust': 'disgust_score', 'Neutral': 'neutral_score',
             'Surprise': 'surprise_score'
         }
         confidence = float(latest[emotion_col_map.get(emotion, 'confidence')])
-        v_active   = latest['video_feed_active']
-        a_active   = latest['audio_feed_active']
+        v_active = latest['video_feed_active']
+        a_active = latest['audio_feed_active']
 
-        emotions       = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score','surprise_score']
+        emotions = ['happy_score','sad_score','fear_score','angry_score','disgust_score','neutral_score','surprise_score']
         emotion_labels = ['Happy','Sad','Fear','Angry','Disgust','Neutral','Surprise']
         emotion_values = [float(latest[e]) for e in emotions]
 
@@ -645,10 +645,10 @@ if page == "📊 Dashboard":
                     unsafe_allow_html=True
                 )
                 if st.button("↺ Run Again", type="primary"):
-                    st.session_state.demo_frame    = 0
+                    st.session_state.demo_frame = 0
                     st.session_state.session_start = datetime.now()
                     st.session_state.demo_complete = False
-                    st.session_state.live_mode     = True
+                    st.session_state.live_mode = True
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -917,7 +917,7 @@ elif page == "📋 Timeline":
 
             selected_row = None
             for _, ev in page_df.iterrows():
-                ts   = pd.to_datetime(ev['timestamp']).strftime('%H:%M:%S')
+                ts = pd.to_datetime(ev['timestamp']).strftime('%H:%M:%S')
                 conf = float(ev['confidence'])
                 c_col = conf_color(conf)
 
@@ -965,7 +965,7 @@ elif page == "📋 Timeline":
 
             st.markdown('<div style="margin-top:24px;">', unsafe_allow_html=True)
             if selected_row is not None:
-                ev     = selected_row
+                ev = selected_row
                 ts_fmt = pd.to_datetime(ev['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
                 st.markdown(f'<div style="font-size:15px;font-weight:700;color:#111111;margin-bottom:16px;">🔍 Diagnostic Detail — {ts_fmt}</div>', unsafe_allow_html=True)
                 d1, d2 = st.columns(2)
@@ -1033,9 +1033,9 @@ elif page == "🧠 Performance":
             st.rerun()
 
     # ── Metrics ───────────────────────────────────────────────────────────────
-    mat   = st.session_state.conf_matrix
-    acc   = accuracy_from_matrix(mat) * 100
-    f1    = f1_from_matrix(mat) * 100
+    mat = st.session_state.conf_matrix
+    acc = accuracy_from_matrix(mat) * 100
+    f1 = f1_from_matrix(mat) * 100
     # Try reading real latency/CPU from live data, fall back to simulated
     _live_metrics_loaded = False
     if os.path.exists(LIVE_DATA_PATH):
@@ -1052,8 +1052,8 @@ elif page == "🧠 Performance":
         except Exception:
             pass
     if not _live_metrics_loaded:
-        lat   = st.session_state.latency
-        cpu   = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
+        lat = st.session_state.latency
+        cpu = st.session_state.cpu_history[-1] if st.session_state.cpu_history else 50
         cpu_h = list(st.session_state.cpu_history)
 
     lat_color = "#16a34a" if lat < 50 else "#d97706" if lat < 70 else "#dc2626"
@@ -1261,9 +1261,9 @@ elif page == "⚙️ Settings":
         )
         new_conf_red, new_conf_amber = thresholds
 
-        low_pct    = new_conf_red
+        low_pct = new_conf_red
         medium_pct = new_conf_amber - new_conf_red
-        high_pct   = 100 - new_conf_amber
+        high_pct = 100 - new_conf_amber
         st.markdown(
             f'''<div style="margin-top:8px;margin-bottom:16px;">
                 <div style="display:flex;border-radius:8px;overflow:hidden;height:28px;">
@@ -1280,7 +1280,7 @@ elif page == "⚙️ Settings":
             </div>''',
             unsafe_allow_html=True
         )
-        new_recovery   = st.slider("Recovery frames to close a low-confidence event", 1, 10, current["recovery_frames"])
+        new_recovery = st.slider("Recovery frames to close a low-confidence event", 1, 10, current["recovery_frames"])
 
     col_save, col_status = st.columns([1, 3])
     with col_save:

@@ -75,6 +75,9 @@ The demo writes to `dashboard/data/emotion_live_data.csv` with columns:
 | `audio_signal_quality` | float | 0-100 (rolling VAD speech rate) |
 | `video_feed_active` | bool | True/False |
 | `audio_feed_active` | bool | True/False |
+| `face_latency_ms` | float | Per-frame face inference time |
+| `audio_latency_ms` | float | Per-chunk audio inference time |
+| `cpu_usage` | float | 0-100 (system CPU %, sampled every 1s) |
 
 ## Evaluation Results
 

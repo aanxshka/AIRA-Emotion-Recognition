@@ -22,3 +22,9 @@ Contents:
 | `training/` | Archival scripts for MLP fusion training: data splitting (`data_split.py`), feature extraction (`extract_features.py`), and model training with 5-fold CV (`train_mlp_fusion.py`). References the calibration_test experiment repo paths. |
 | `visual_models_testing/` | Benchmarking scripts and results for 6 visual models: DeepFace, RetinaFace+DeepFace, FER, HSEmotion (3 variants), MediaPipe, Py-feat. Includes a Streamlit comparison app (`hs_fer_mediapipe_evaluation/`) for interactive model comparison. Per-model results include confusion matrices, per-class metrics, and age-group breakdowns. |
 | `audio_models_testing/` | Evaluation notebooks for audio models: Emotion2Vec and Wav2Vec, tested on RAVDESS (2,880 samples, 24 speakers). |
+
+## Related Repository
+
+The calibration experimentation repo contains additional work on calibration approaches (embedding similarity, action units, landmarks), DeepFace calibration experiments, and the comparison demo GUIs:
+
+**[andersooi/emotional-detection-calibration-experiment](https://github.com/andersooi/emotional-detection-calibration-experiment)**
